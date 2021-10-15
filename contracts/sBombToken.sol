@@ -5,6 +5,22 @@ import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "./interfaces/IUniswapV2Router.sol";
 
+/**
+ * @dev Implementation of the sBomb Token.
+ *
+ * Deflationary token mechanics:
+ *
+ * When buy/sell on Sushiswap or Pancakeswap:
+ *
+ * Buy tax: 6%, =
+ * 5% Lottery (see below). Need to be converted to ETH or BNB and sent to the lottery contract.
+ * 1% SHIBAK buy and burn 
+ * 
+ * Sell tax: 20%, =
+ * 10% SHIBAK buy and burn
+ * 5% to team wallet
+ * 5% to sBOMB liquidity pool
+ */
 contract sBombToken is ERC20, Ownable{
 
     address public dexRouter;
@@ -12,6 +28,7 @@ contract sBombToken is ERC20, Ownable{
     address public teamWallet;
     address public lotteryContract;
 
+    //buy/sell taxes for deflationary token
     uint256 public constant LOTTERY_BUY_TAX = 5;
     uint256 public constant SHIBAK_BUY_TAX = 1;
     uint256 public constant SHIBAK_SELL_TAX = 10;
@@ -33,6 +50,11 @@ contract sBombToken is ERC20, Ownable{
     function changeTeamWallet(address _wallet) external onlyOwner{
         require(_wallet != address(0));
         teamWallet = _wallet;
+    }
+
+    function setDexRouter(address _dex) external onlyOwner{
+        require(_dex != address(0));
+        dexRouter = _dex;
     }
 
     function _transfer(address sender, address recipient, uint256 amount) internal virtual override {
