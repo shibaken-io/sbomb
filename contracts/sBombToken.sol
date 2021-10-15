@@ -4,6 +4,7 @@ pragma solidity 0.8.9;
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "./interfaces/IUniswapV2Router.sol";
+import "./interfaces/IUniswapV2Factory.sol";
 
 /**
  * @dev Implementation of the sBomb Token.
@@ -35,6 +36,8 @@ contract sBombToken is ERC20, Ownable{
     uint256 public constant TEAM_SELL_TAX = 5;
     uint256 public constant LIQ_SELL_TAX = 5;
 
+    address private constant DEAD_ADDRESS = address(0x000000000000000000000000000000000000dEaD);
+
     constructor(address _shibakenToken, address _dex) ERC20("sBOMB", "SBOMB") {
         SHIBAKEN = _shibakenToken;
         dexRouter = _dex;
@@ -44,6 +47,7 @@ contract sBombToken is ERC20, Ownable{
     }
 
     function setLotteryContarct(address _lottery) external onlyOwner{
+        require(_lottery != address(0));
         lotteryContract = _lottery;
     }
 
@@ -61,65 +65,108 @@ contract sBombToken is ERC20, Ownable{
         _beforeTokenTransfer(sender, recipient, amount);
         uint256 totalFee;
         if(sender == dexRouter) {
-            uint256 lotteryFee = amount * LOTTERY_BUY_TAX / 100;
-            uint256 burnFee = amount * SHIBAK_BUY_TAX / 100;
-            //totalFee = burnFee + lotteryFee;
+            uint256 lotteryFee = _sendLotteryFee(amount);
+            uint256 burnFee = _sendBurnFee(true, amount);
 
-            IUniswapV2Router router = IUniswapV2Router(dexRouter);
-            address[] memory path = new address[](2);
-            path[0] = address(this);
-            path[1] = router.WETH();
-            uint256[] memory amounts = router.swapExactTokensForETH(
-                lotteryFee,
-                0,
-                path,
-                address(this),
-                block.timestamp + 15 minutes
-            );
-            require(amounts[1] > 0, "Zero ETH");
-            bool success;
-            (success, ) = payable(lotteryContract).call{
-                value: amounts[1]
-            }("");
-            require(success, "Lottery fee transfer error");
-            //payable(lotteryContract).transfer(amounts[1]);
-            //super._transfer(sender, lotteryContract, amounts[1]);
-            //TODO: 1% SHIBAK buy and burn
-
-            totalFee = burnFee + amounts[0];
+            //count total fee, buy tax ~= 6%
+            totalFee = burnFee + lotteryFee;
         }
         else if(recipient == dexRouter) {
-            uint256 burnFee = amount * SHIBAK_SELL_TAX / 100;
-            uint256 toTeam = amount * TEAM_SELL_TAX / 100;
-            uint256 toLiquidity = amount * LIQ_SELL_TAX / 100;
-            //totalFee = burnFee + toTeam + toLiquidity;
+            uint256 burnFee = _sendBurnFee(false, amount);
+            uint256 toTeam = _sendTeamFee(amount);
+            uint256 toLiquidity = _sendLiqFee(amount);
 
-            //TODO: 10% SHIBAK buy and burn
-            super._transfer(sender, teamWallet, toTeam);
-            IUniswapV2Router router = IUniswapV2Router(dexRouter);
-            address[] memory path = new address[](2);
-            path[0] = address(this);
-            path[1] = router.WETH();
-            uint256[] memory amounts = router.swapExactTokensForETH(
-                toLiquidity/2,
-                0,
-                path,
-                address(this),
-                block.timestamp + 15 minutes
-            );
-            router.addLiquidityETH{
-                value: amounts[1]
-            }(
-                address(this),
-                toLiquidity-amounts[0],
-                0,
-                0,
-                address(this),
-                block.timestamp + 15 minutes
-            );
-
+            //count total fee, sell tax ~= 20%
             totalFee = burnFee + toTeam + toLiquidity;
         }
         super._transfer(sender, recipient, amount - totalFee);
+    }
+
+    function _sendLotteryFee(uint256 amount) private returns(uint256 lotteryFee) {
+        lotteryFee = amount * LOTTERY_BUY_TAX / 100;
+
+        //swap sBomb to ETH/BNB and send to the lottery contract
+        IUniswapV2Router router = IUniswapV2Router(dexRouter);
+        address[] memory path = new address[](2);
+        path[0] = address(this);
+        path[1] = router.WETH();
+        uint256[] memory amounts = router.swapExactTokensForETH(
+            lotteryFee,
+            0,
+            path,
+            address(this),
+            block.timestamp + 15 minutes
+        );
+        require(amounts[1] > 0, "Zero ETH");
+        bool success;
+        (success, ) = payable(lotteryContract).call{
+            value: amounts[1]
+        }("");
+        require(success, "Lottery fee transfer error");
+        lotteryFee = amounts[0];
+    }
+
+    function _sendBurnFee(bool isBuyTax, uint256 amount) private returns(uint256 burnFee){
+        burnFee = isBuyTax ? amount * SHIBAK_BUY_TAX / 100 : amount * SHIBAK_SELL_TAX / 100;
+
+        //swap sBomb to Shibaken and burn it
+        IUniswapV2Router router = IUniswapV2Router(dexRouter);
+        address[] memory path = new address[](2);
+        path[0] = address(this);
+        path[1] = SHIBAKEN;
+        uint256[] memory amounts = router.swapExactTokensForTokens(
+            burnFee,
+            0,
+            path,
+            DEAD_ADDRESS,
+            block.timestamp + 15 minutes
+        );
+        burnFee = amounts[0];
+    }
+
+    function _sendTeamFee(uint256 amount) private returns(uint256 teamFee){
+        teamFee = amount * TEAM_SELL_TAX / 100;
+
+        //swap sBomb token to ETH/BNB and send to the team wallet
+        IUniswapV2Router router = IUniswapV2Router(dexRouter);
+        address[] memory path = new address[](2);
+        path[0] = address(this);
+        path[1] = router.WETH();
+        uint256[] memory amounts = router.swapExactTokensForETH(
+            teamFee,
+            0,
+            path,
+            teamWallet,
+            block.timestamp + 15 minutes
+        );
+        teamFee = amounts[0];
+    }
+
+    function _sendLiqFee(uint256 amount) private returns(uint256 liqFee){
+        liqFee = amount * LIQ_SELL_TAX / 100;
+
+        //swap 1/2 of toLiquidity-sBomb token, add liquidity into ETH/BNB-sBomb pair and burn LP tokens
+        IUniswapV2Router router = IUniswapV2Router(dexRouter);
+        address[] memory path = new address[](2);
+        path[0] = address(this);
+        path[1] = router.WETH();
+        uint256[] memory amounts = router.swapExactTokensForETH(
+            liqFee/2,
+            0,
+            path,
+            address(this),
+            block.timestamp + 15 minutes
+        );
+
+        router.addLiquidityETH{
+            value: amounts[1]
+        }(
+            address(this),
+            liqFee-amounts[0],
+            0,
+            0,
+            DEAD_ADDRESS,
+            block.timestamp + 15 minutes
+        );
     }
 }

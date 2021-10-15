@@ -2,6 +2,7 @@ const { expect } = require('chai');
 const { BN, expectEvent, expectRevert, makeInterfaceId, time } = require('@openzeppelin/test-helpers');
 const { web3 } = require('@openzeppelin/test-helpers/src/setup');
 const { Contract } = require('web3-eth-contract');
+//const { assert } = require('console');
 
 //pancake artifacts
 const WETH = artifacts.require('WETH');
@@ -35,6 +36,7 @@ const DAY = new BN(86400);
 const MINUTE = new BN(60);
 
 const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
+const DEAD_ADDRESS = "0x000000000000000000000000000000000000dEaD";
 
 const DECIMALS = new BN(18);
 const ONE_TOKEN = TEN.pow(DECIMALS);
@@ -62,7 +64,7 @@ contract(
         ]
     ) => {
 
-        let sBombToken, shibakenToken;
+        let sBombToken, shibakenToken, sBombEthLP, sBombShibakenLP;
 
         beforeEach(async()=>{
             sBombToken = await SBombToken.deployed();
@@ -82,7 +84,50 @@ contract(
                 wethInst.address,
                 { from: deployer }
             );
-        }
-    )
 
-})
+            await sBombToken.setDexRouter(pancakeRouterInstant.address);
+            await sBombToken.approve(pancakeRouterInstant.address, ONE_HUNDRED_TOKENS.mul(TWO));
+            await shibakenToken.approve(pancakeRouterInstant.address, ONE_HUNDRED_TOKENS);
+            let now = await time.latest();
+            await pancakeRouterInstant.addLiquidityETH(
+                sBombToken.address,
+                ONE_HUNDRED_TOKENS,
+                ZERO,
+                ZERO,
+                deployer,
+                now.add(time.duration.minutes(15)),
+                {value: ONE_TOKEN.mul(TEN)}
+            );
+            await pancakeRouterInstant.addLiquidity(
+                sBombToken.address,
+                shibakenToken.address,
+                ONE_HUNDRED_TOKENS,
+                ONE_HUNDRED_TOKENS,
+                ZERO,
+                ZERO,
+                deployer,
+                now.add(time.duration.minutes(15))
+            );
+
+            sBombEthLP = await pancakeFactoryInstant.getPair(wethInst.address, sBombToken.address);
+            sBombEthLP = await PancakePair.at(sBombEthLP);
+            sBombShibakenLP = await pancakeFactoryInstant.getPair(sBombToken.address, shibakenToken.address);
+            sBombShibakenLP = await PancakePair(sBombShibakenLP);
+        })
+
+        it("#0 - initial checking", async()=>{
+            expect(await shibakenToken.balanceOf(DEAD_ADDRESS)).bignumber.equal(ZERO);
+            expect(await sBombEthLP.balanceOf(DEAD_ADDRESS)).bignumber.equal(ZERO);
+            let lotteryBalance = await web3.eth.getBalance(lottery);
+            let teamBalance = await web3.eth.getBalance(team);
+            assert.equal(lotteryBalance.toString(),ONE_HUNDRED_TOKENS.toString());
+            assert.equal(teamBalance.toString(),ONE_HUNDRED_TOKENS.toString());
+        })
+
+        /* it("#1 - transfer between usual addresses", async()=>{
+            
+        }) */
+    
+
+    }
+)
