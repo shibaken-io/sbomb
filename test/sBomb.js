@@ -64,11 +64,12 @@ contract(
         ]
     ) => {
 
-        let sBombToken, shibakenToken, sBombEthLP, sBombShibakenLP;
+        let sBombToken, shibakenToken, sBombEthLP, sBombShibakenLP, testToken;
 
         beforeEach(async()=>{
             sBombToken = await SBombToken.deployed();
             shibakenToken = await TestToken.deployed();
+            testToken = await TestToken.new("TestToken", "TEST", {from: user1});
 
             wethInst = await WETH.new(
                 { from: deployer }
@@ -85,7 +86,7 @@ contract(
                 { from: deployer }
             );
 
-            await sBombToken.setDexRouter(pancakeRouterInstant.address);
+            //await sBombToken.setDexRouter(pancakeRouterInstant.address);
             await sBombToken.approve(pancakeRouterInstant.address, ONE_HUNDRED_TOKENS.mul(TWO));
             await shibakenToken.approve(pancakeRouterInstant.address, ONE_HUNDRED_TOKENS);
             let now = await time.latest();
@@ -109,10 +110,27 @@ contract(
                 now.add(time.duration.minutes(15))
             );
 
+            await sBombToken.transfer(user1, ONE_HUNDRED_TOKENS);
+            await sBombToken.approve(pancakeRouterInstant.address, ONE_HUNDRED_TOKENS, {from: user1});
+            await testToken.approve(pancakeRouterInstant.address, ONE_HUNDRED_TOKENS, {from: user1});
+            await pancakeRouterInstant.addLiquidity(
+                sBombToken.address,
+                testToken.address,
+                ONE_HUNDRED_TOKENS,
+                ONE_HUNDRED_TOKENS,
+                ZERO,
+                ZERO,
+                deployer,
+                now.add(time.duration.minutes(15)),
+                {from: user1}
+            );
+
             sBombEthLP = await pancakeFactoryInstant.getPair(wethInst.address, sBombToken.address);
             sBombEthLP = await PancakePair.at(sBombEthLP);
             sBombShibakenLP = await pancakeFactoryInstant.getPair(sBombToken.address, shibakenToken.address);
             sBombShibakenLP = await PancakePair(sBombShibakenLP);
+
+            await sBombToken.setDexRouter(pancakeRouterInstant.address);
         })
 
         it("#0 - initial checking", async()=>{
@@ -124,10 +142,66 @@ contract(
             assert.equal(teamBalance.toString(),ONE_HUNDRED_TOKENS.toString());
         })
 
-        /* it("#1 - transfer between usual addresses", async()=>{
-            
-        }) */
-    
+        it("#1 - transfer between usual addresses", async()=>{
+            expect(await sBombToken.balanceOf(user1)).bignumber.equal(ZERO);
 
+            const lotteryEthBalanceBefore = await web3.eth.getBalance(lottery);
+            const teamEthBalanceBefore = await web3.eth.getBalance(team);
+            sBombToken.transfer(user1, ONE_HUNDRED_TOKENS, {from: deployer});
+            const lotteryEthBalanceAfter = await web3.eth.getBalance(lottery);
+            const teamEthBalanceAfter = await web3.eth.getBalance(team);
+            expect(await shibakenToken.balanceOf(DEAD_ADDRESS)).bignumber.equal(ZERO);
+            expect(await sBombEthLP.balanceOf(DEAD_ADDRESS)).bignumber.equal(ZERO);
+            assert.equal(lotteryEthBalanceAfter - lotteryEthBalanceBefore, 0);
+            assert.equal(teamEthBalanceAfter - teamEthBalanceBefore, 0);
+        })
+    
+        /* it("#2 - trying to BUY sBomb token on DEX", async()=>{
+            //console.log("Router address : ",await sBombToken.dexRouter.call());
+
+            let amounts = await pancakeRouterInstant.getAmountsOut(ONE_HALF_TOKEN, [wethInst.address, sBombToken.address]);
+
+            console.log(await sBombToken.pairAddress.call());
+
+            const lotteryEthBalanceBefore = await web3.eth.getBalance(lottery);
+            let now = await time.latest();
+            let receipt = await pancakeRouterInstant.swapExactETHForTokens(
+                ZERO,
+                [wethInst.address, sBombToken.address],
+                user2,
+                now.add(time.duration.minutes(15)),
+                {value: ONE_HALF_TOKEN,
+                from: user2}
+            );
+            //expect(amounts[1]).bignumber.equal(await sBombToken.balanceOf(user2));
+            await expectEvent(receipt, "BuyTaxTaken");
+            const lotteryEthBalanceAfter = await web3.eth.getBalance(lottery);
+            assert.equal(lotteryEthBalanceAfter - lotteryEthBalanceBefore, amounts[1].mul(FIVE).div(ONE_HUNDRED));
+            expect(await shibakenToken.balanceOf(DEAD_ADDRESS)).bignumber.equal(amounts[1].div(ONE_HUNDRED));
+        }) */
+
+        /* it("#3 - trying to swap to another token", async()=>{
+            const lotteryEthBalanceBefore = await web3.eth.getBalance(lottery);
+            await testToken.approve(pancakeRouterInstant.address, ONE_HALF_TOKEN, {from:user1});
+            let now = await time.latest();
+            let receipt = await pancakeRouterInstant.swapExactTokensForTokens(
+                ONE_HALF_TOKEN,
+                ZERO,
+                [testToken.address, sBombToken.address],
+                user1,
+                now.add(time.duration.minutes(15)),
+                {from: user1}
+            );
+            //console.log(receipt);
+            //console.log(await pancakeFactoryInstant.getPair(sBombToken.address, testToken.address));
+            await expectEvent(receipt, "BuyTaxTaken");
+        }) */
+
+        it("_pairCheck() test", async()=>{
+            const pairAddress = await pancakeFactoryInstant.getPair(sBombToken.address, testToken.address);
+
+            assert.equal(await sBombToken._pairCheck(pairAddress), true);
+            assert.equal(await sBombToken._pairCheck(user1), false);
+        })
     }
 )
