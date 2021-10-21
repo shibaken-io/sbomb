@@ -8,7 +8,7 @@ import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 contract Staking is Ownable, ReentrancyGuard {
     uint256 private constant DECIMAL = 10**18;
     uint256 private constant LOCK_UP = 60*60*24*30; 
-    address private /*constant*/ DEAD_WALLET = address(0);
+    address private constant DEAD_WALLET = 0x000000000000000000000000000000000000dEaD;
 
     address public rewardToken;
     address public stakedToken;
@@ -48,8 +48,7 @@ contract Staking is Ownable, ReentrancyGuard {
         address stToken,
         address rewToken,
         address dWallet,
-        uint256 period,
-        address dead
+        uint256 period
     ) external onlyOwner {
         require(
             N == 0 || stakedToken == address(0) || rewardToken == address(0) || devWallet == address(0),
@@ -62,7 +61,6 @@ contract Staking is Ownable, ReentrancyGuard {
         rewardToken = rewToken;
         stakedToken = stToken;
         devWallet = dWallet;
-        DEAD_WALLET = dead;
         N = IERC20(rewardToken).balanceOf(address(this)) / period;
     }
 
@@ -153,7 +151,6 @@ contract Staking is Ownable, ReentrancyGuard {
             amount -= feeToDevWallet;
         }
 
-        
         if(feeToDeadWallet != 0){
             require(
                 IERC20(stakedToken).transfer(DEAD_WALLET, feeToDeadWallet),
