@@ -38,16 +38,16 @@ module.exports = {
     mainnet: {
       provider: () => new HDWalletProvider(MNEMONIC, "https://mainnet.infura.io/v3/" + INFURA_ID_PROJECT),
       network_id: 1,
-      gasPrice: web3.utils.toWei(ETH_MAINNET_GASPRICE, 'gwei'),
-      gas: DEFAULT_OPERATIONS_GASLIMIT,
+      //gasPrice: web3.utils.toWei(ETH_MAINNET_GASPRICE, 'gwei'),
+      //gas: DEFAULT_OPERATIONS_GASLIMIT,
       skipDryRun: false
     },
     kovan: {
       provider: () => new HDWalletProvider(MNEMONIC, "https://kovan.infura.io/v3/" + INFURA_ID_PROJECT),
       network_id: 42,
       confirmations: 2,
-      gas: DEFAULT_OPERATIONS_GASLIMIT,
-      gasPrice: web3.utils.toWei(TESTNETS_GASPRICE, 'gwei'),
+      //gas: DEFAULT_OPERATIONS_GASLIMIT,
+      //gasPrice: web3.utils.toWei(TESTNETS_GASPRICE, 'gwei'),
       skipDryRun: true
     },
     bscTestnet: {
@@ -55,8 +55,8 @@ module.exports = {
         network_id: 97,
         confirmations: 2,
         timeoutBlocks: 200,
-        gasPrice: web3.utils.toWei(TESTNETS_GASPRICE, 'gwei'),
-        gas: DEFAULT_OPERATIONS_GASLIMIT,
+        //gasPrice: web3.utils.toWei(TESTNETS_GASPRICE, 'gwei'),
+        //gas: DEFAULT_OPERATIONS_GASLIMIT,
         skipDryRun: true
     },
     bscMainnet: {
@@ -64,8 +64,8 @@ module.exports = {
         network_id: 56,
         confirmations: 2,
         timeoutBlocks: 200,
-        gasPrice: web3.utils.toWei(BSC_MAINNET_GASPRICE, 'gwei'),
-        gas: DEFAULT_OPERATIONS_GASLIMIT,
+        //gasPrice: web3.utils.toWei(BSC_MAINNET_GASPRICE, 'gwei'),
+        //gas: DEFAULT_OPERATIONS_GASLIMIT,
         skipDryRun: true
     }
   },
