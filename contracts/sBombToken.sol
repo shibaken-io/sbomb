@@ -6,6 +6,7 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "./interfaces/IUniswapV2Router.sol";
 import "./interfaces/IUniswapV2Factory.sol";
 import "./interfaces/IUniswapV2Pair.sol";
+import "./pancake-swap/libraries/TransferHelper.sol";
 
 /**
  * @dev Implementation of the sBomb Token.
@@ -24,7 +25,7 @@ import "./interfaces/IUniswapV2Pair.sol";
  * 5% to sBOMB liquidity pool
  */
 contract sBombToken is ERC20, Ownable {
-    address public dexRouter;
+    IUniswapV2Router public dexRouter;
     //address public pairAddress;
     address public immutable SHIBAKEN;
     address public teamWallet;
@@ -40,6 +41,11 @@ contract sBombToken is ERC20, Ownable {
     address private constant DEAD_ADDRESS =
         address(0x000000000000000000000000000000000000dEaD);
 
+    bytes4 private constant SELECTOR_0 = bytes4(keccak256(bytes("token0()")));
+    bytes4 private constant SELECTOR_1 = bytes4(keccak256(bytes("token1()")));
+
+    bool private inSwap;
+
     event BuyTaxTaken(uint256 toLottery, uint256 toBurn, uint256 total);
     event SellTaxTaken(
         uint256 toBurn,
@@ -47,9 +53,16 @@ contract sBombToken is ERC20, Ownable {
         uint256 toLiquidity,
         uint256 total
     );
-    event Log(address sender, address recepient);
 
-    constructor(address _shibakenToken, address _dex) ERC20("sBOMB", "SBOMB") {
+    modifier lockTheSwap() {
+        inSwap = true;
+        _;
+        inSwap = false;
+    }
+
+    constructor(address _shibakenToken, IUniswapV2Router _dex)
+        ERC20("sBOMB", "SBOMB")
+    {
         SHIBAKEN = _shibakenToken;
         dexRouter = _dex;
 
@@ -57,181 +70,305 @@ contract sBombToken is ERC20, Ownable {
         _mint(_msgSender(), initialSupply);
     }
 
+    receive() external payable {}
+
+    /** @dev Owner function for setting lottery contarct address
+     * @param _lottery lottery contract address
+     */
     function setLotteryContarct(address _lottery) external onlyOwner {
         require(_lottery != address(0));
         lotteryContract = _lottery;
     }
 
+    /** @dev Owner function for setting team wallet address
+     * @param _wallet team wallet address
+     */
     function changeTeamWallet(address _wallet) external onlyOwner {
         require(_wallet != address(0));
         teamWallet = _wallet;
     }
 
-    function setDexRouter(address _dex) external onlyOwner {
-        require(_dex != address(0));
+    /** @dev Owner function for setting DEX router address
+     * @param _dex DEX router address
+     */
+    function setDexRouter(IUniswapV2Router _dex) external onlyOwner {
+        require(address(_dex) != address(0));
         dexRouter = _dex;
-        /* IUniswapV2Router router = IUniswapV2Router(dexRouter);
-        pairAddress = IUniswapV2Factory(router.factory()).getPair(router.WETH(), address(this)); */
+    }
+
+    /** @dev Public payable function for adding liquidity in SBOMB-ETH pair without 20% fee
+     * @param tokenAmount sBomb token amount
+     * @param amountTokenMin min sBomb amount going to pool
+     * @param amountETHMin min ETH amount going to pool
+     * @param to address for LP-tokens
+     */
+    function noFeeAddLiquidityETH(
+        uint256 tokenAmount,
+        uint256 amountTokenMin,
+        uint256 amountETHMin,
+        address to
+    ) external payable lockTheSwap {
+        require(msg.value > 0 && tokenAmount > 0);
+        //super._transfer(_msgSender(), address(this), tokenAmount);
+        TransferHelper.safeTransferFrom(address(this), _msgSender(), address(this), tokenAmount);
+        _approve(address(this), address(dexRouter), tokenAmount);
+        (uint256 token, uint256 eth, ) = dexRouter.addLiquidityETH{value: msg.value}(
+            address(this),
+            tokenAmount,
+            amountTokenMin,
+            amountETHMin,
+            to,
+            block.timestamp
+        );
+        if(tokenAmount > token)
+            TransferHelper.safeTransfer(address(this), _msgSender(), tokenAmount - token);
+        if(msg.value > eth)
+            payable(_msgSender()).transfer(msg.value - eth);
+    }
+
+    /** @dev Public payable function for adding liquidity in SBOMB-<TOKEN> pair without 20% fee
+     * @param token1 another token address
+     * @param tokenAmount0 sBomb token amount
+     * @param tokenAmount1 another token amount
+     * @param amountToken0Min min sBomb amount going to pool
+     * @param amountToken0Min min <TOKEN> amount going to pool
+     * @param to address for LP-tokens
+     */
+    function noFeeAddLiquidity(
+        address token1,
+        uint256 tokenAmount0,
+        uint256 tokenAmount1,
+        uint256 amountToken0Min,
+        uint256 amountToken1Min,
+        address to
+    ) external lockTheSwap {
+        require(tokenAmount0 > 0 && tokenAmount1 > 0);
+        //super._transfer(_msgSender(), address(this), tokenAmount0);
+        TransferHelper.safeTransferFrom(address(this), _msgSender(), address(this), tokenAmount0);
+        _approve(address(this), address(dexRouter), tokenAmount0);
+        TransferHelper.safeTransferFrom(token1, _msgSender(), address(this), tokenAmount1);
+        TransferHelper.safeApprove(token1, address(dexRouter), tokenAmount1);
+        (uint256 finalToken0, uint256 finalToken1, ) = dexRouter.addLiquidity(
+            address(this),
+            token1,
+            tokenAmount0,
+            tokenAmount1,
+            amountToken0Min,
+            amountToken1Min,
+            to,
+            block.timestamp
+        );
+
+        if(finalToken0 < tokenAmount0)
+            TransferHelper.safeTransfer(address(this), _msgSender(), tokenAmount0 - finalToken0);
+
+        if(finalToken1 < tokenAmount1)
+            TransferHelper.safeTransfer(token1, _msgSender(), tokenAmount1 - finalToken1);
+    }
+
+    function _swapTokensForEth(
+        uint256 tokenAmount,
+        address to,
+        address[] memory path
+    ) internal lockTheSwap {
+        dexRouter.swapExactTokensForETHSupportingFeeOnTransferTokens(
+            tokenAmount,
+            0,
+            path,
+            to,
+            block.timestamp
+        );
+    }
+
+    function _swapTokensForTokens(
+        uint256 tokenAmount,
+        address to,
+        address[] memory path
+    ) internal lockTheSwap {
+        dexRouter.swapExactTokensForTokensSupportingFeeOnTransferTokens(
+            tokenAmount,
+            0,
+            path,
+            to,
+            block.timestamp
+        );
     }
 
     function _transfer(
         address sender,
         address recipient,
         uint256 amount
-    ) internal virtual override{
-        //_beforeTokenTransfer(sender, recipient, amount);
-        //emit Log(sender, recipient);
+    ) internal virtual override {
         uint256 totalFee;
-        /* if (_pairCheck(sender)) {
-            uint256 lotteryFee = LOTTERY_BUY_TAX * amount / 100; //_sendLotteryFee(amount);
-            uint256 burnFee = SHIBAK_BUY_TAX * amount / 100;//_sendBurnFee(true, amount); 
 
-            //calculate total fee, buy tax ~= 6%
-            totalFee = burnFee + lotteryFee;
-
-            emit BuyTaxTaken(lotteryFee, burnFee, totalFee);
-        } else if (_pairCheck(recipient)) {
-            uint256 burnFee = SHIBAK_SELL_TAX * amount / 100;//_sendBurnFee(false, amount);
-            uint256 toTeam = TEAM_SELL_TAX * amount / 100;//_sendTeamFee(amount);
-            uint256 toLiquidity = LIQ_SELL_TAX * amount / 100;//_sendLiqFee(amount);
-
-            //calculate total fee, sell tax ~= 20%
-            totalFee = burnFee + toTeam + toLiquidity;
-        } */
-             
-        /* if(_msgSender() != dexRouter){
+        if (!inSwap) {
             if (_pairCheck(sender)) {
-                uint256 lotteryFee = LOTTERY_BUY_TAX * amount / 100; //_sendLotteryFee(amount);
-                uint256 burnFee = SHIBAK_BUY_TAX * amount / 100;//_sendBurnFee(true, amount); 
+                uint256 lotteryFee = (LOTTERY_BUY_TAX * amount) / 100;
+                uint256 burnFee = (SHIBAK_BUY_TAX * amount) / 100;
+                totalFee = lotteryFee + burnFee;
 
-                //calculate total fee, buy tax ~= 6%
-                totalFee = burnFee + lotteryFee;
+                super._transfer(sender, address(this), totalFee);
+                _approve(address(this), address(dexRouter), totalFee);
+
+                //LOTTERY FEE
+                if (
+                    sender ==
+                    address(
+                        IUniswapV2Factory(dexRouter.factory()).getPair(
+                            address(this),
+                            dexRouter.WETH()
+                        )
+                    )
+                ) {
+                    address[] memory path = new address[](3);
+                    path[0] = address(this);
+                    path[1] = SHIBAKEN;
+                    path[2] = dexRouter.WETH();
+
+                    if (_pairExisting(path))
+                        _swapTokensForEth(lotteryFee, lotteryContract, path);
+                } else {
+                    address[] memory path = new address[](2);
+                    path[0] = address(this);
+                    path[1] = dexRouter.WETH();
+                    if (_pairExisting(path))
+                        _swapTokensForEth(lotteryFee, lotteryContract, path);
+                }
+
+                //BURN FEE
+                if (
+                    sender ==
+                    address(
+                        IUniswapV2Factory(dexRouter.factory()).getPair(
+                            address(this),
+                            SHIBAKEN
+                        )
+                    )
+                ) {
+                    address[] memory path = new address[](3);
+                    path[0] = address(this);
+                    path[1] = dexRouter.WETH();
+                    path[2] = SHIBAKEN;
+                    if (_pairExisting(path))
+                        _swapTokensForTokens(burnFee, DEAD_ADDRESS, path);
+                } else {
+                    address[] memory path = new address[](2);
+                    path[0] = address(this);
+                    path[1] = SHIBAKEN;
+                    if (_pairExisting(path))
+                        _swapTokensForTokens(burnFee, DEAD_ADDRESS, path);
+                }
 
                 emit BuyTaxTaken(lotteryFee, burnFee, totalFee);
-            } else if (_pairCheck(recipient)) {
-                uint256 burnFee = SHIBAK_SELL_TAX * amount / 100;//_sendBurnFee(false, amount);
-                uint256 toTeam = TEAM_SELL_TAX * amount / 100;//_sendTeamFee(amount);
-                uint256 toLiquidity = LIQ_SELL_TAX * amount / 100;//_sendLiqFee(amount);
-
-                //calculate total fee, sell tax ~= 20%
+            } else if (
+                _pairCheck(recipient) && address(dexRouter) == _msgSender()
+            ) {
+                uint256 burnFee = (SHIBAK_SELL_TAX * amount) / 100;
+                uint256 toTeam = (TEAM_SELL_TAX * amount) / 100;
+                uint256 toLiquidity = (LIQ_SELL_TAX * amount) / 100;
                 totalFee = burnFee + toTeam + toLiquidity;
+
+                //BURN FEE
+                address[] memory path = new address[](2);
+                path[0] = address(this);
+                path[1] = SHIBAKEN;
+                if (_pairExisting(path)) {
+                    super._transfer(sender, address(this), burnFee);
+                    _approve(address(this), address(dexRouter), burnFee);
+                    _swapTokensForTokens(burnFee, DEAD_ADDRESS, path);
+                }
+
+                //TEAM FEE
+                path[1] = dexRouter.WETH();
+                if (_pairExisting(path)) {
+                    super._transfer(sender, address(this), toTeam);
+                    _approve(address(this), address(dexRouter), toTeam);
+                    _swapTokensForEth(toTeam, teamWallet, path);
+                }
+
+                //LIQUIDITY FEE
+                if (_pairExisting(path)) {
+                    super._transfer(sender, address(this), toLiquidity);
+                    _approve(address(this), address(dexRouter), toLiquidity);
+                    uint256 half = toLiquidity / 2;
+                    uint256 anotherHalf = toLiquidity - half;
+                    _swapTokensForEth(half, address(this), path);
+                    inSwap = true;
+                    (uint256 tokenAmount , , ) = dexRouter.addLiquidityETH{value: address(this).balance}(
+                        address(this),
+                        anotherHalf,
+                        0,
+                        0,
+                        DEAD_ADDRESS,
+                        block.timestamp + 15 minutes
+                    );
+                    if (tokenAmount < anotherHalf)
+                        super._transfer(address(this), recipient, anotherHalf - tokenAmount);
+                    inSwap = false;
+                }
 
                 emit SellTaxTaken(burnFee, toTeam, toLiquidity, totalFee);
             }
-        } */
+        }
+
         super._transfer(sender, recipient, amount - totalFee);
-        //super._transfer(sender,lotteryContract, totalFee);
     }
 
-    function _sendLotteryFee(uint256 amount)
-        private
-        returns (uint256 lotteryFee)
-    {
-        lotteryFee = (amount * LOTTERY_BUY_TAX) / 100;
+    function _pairExisting(address[] memory path) internal view returns (bool) {
+        uint8 len = uint8(path.length);
 
-        //swap sBomb to ETH/BNB and send to the lottery contract
-        IUniswapV2Router router = IUniswapV2Router(dexRouter);
-        address[] memory path = new address[](2);
-        path[0] = address(this);
-        path[1] = router.WETH();
-        uint256[] memory amounts = router.swapExactTokensForETH(
-            lotteryFee,
-            0,
-            path,
-            address(this),
-            block.timestamp + 15 minutes
-        );
-        require(amounts[1] > 0, "Zero ETH");
-        bool success;
-        (success, ) = payable(lotteryContract).call{value: amounts[1]}("");
-        require(success, "Lottery fee transfer error");
-        lotteryFee = amounts[0];
+        IUniswapV2Factory factory = IUniswapV2Factory(dexRouter.factory());
+        address pair;
+        uint256 reserve0;
+        uint256 reserve1;
+
+        for (uint8 i; i < len - 1; i++) {
+            pair = factory.getPair(path[i], path[i + 1]);
+            if (pair != address(0)) {
+                (reserve0, reserve1, ) = IUniswapV2Pair(pair).getReserves();
+                if ((reserve0 == 0 || reserve1 == 0)) return false;
+            } else {
+                return false;
+            }
+        }
+
+        return true;
     }
 
-    function _sendBurnFee(bool isBuyTax, uint256 amount)
-        private
-        returns (uint256 burnFee)
-    {
-        burnFee = isBuyTax
-            ? (amount * SHIBAK_BUY_TAX) / 100
-            : (amount * SHIBAK_SELL_TAX) / 100;
-
-        //swap sBomb to Shibaken and burn it
-        IUniswapV2Router router = IUniswapV2Router(dexRouter);
-        address[] memory path = new address[](2);
-        path[0] = address(this);
-        path[1] = SHIBAKEN;
-        uint256[] memory amounts = router.swapExactTokensForTokens(
-            burnFee,
-            0,
-            path,
-            DEAD_ADDRESS,
-            block.timestamp + 15 minutes
-        );
-        burnFee = amounts[0];
-    }
-
-    function _sendTeamFee(uint256 amount) private returns (uint256 teamFee) {
-        teamFee = (amount * TEAM_SELL_TAX) / 100;
-
-        //swap sBomb token to ETH/BNB and send to the team wallet
-        IUniswapV2Router router = IUniswapV2Router(dexRouter);
-        address[] memory path = new address[](2);
-        path[0] = address(this);
-        path[1] = router.WETH();
-        uint256[] memory amounts = router.swapExactTokensForETH(
-            teamFee,
-            0,
-            path,
-            teamWallet,
-            block.timestamp + 15 minutes
-        );
-        teamFee = amounts[0];
-    }
-
-    function _sendLiqFee(uint256 amount) private returns (uint256 liqFee) {
-        liqFee = (amount * LIQ_SELL_TAX) / 100;
-
-        //swap 1/2 of toLiquidity-sBomb token, add liquidity into ETH/BNB-sBomb pair and burn LP tokens
-        IUniswapV2Router router = IUniswapV2Router(dexRouter);
-        address[] memory path = new address[](2);
-        path[0] = address(this);
-        path[1] = router.WETH();
-        uint256[] memory amounts = router.swapExactTokensForETH(
-            liqFee / 2,
-            0,
-            path,
-            address(this),
-            block.timestamp + 15 minutes
-        );
-
-        router.addLiquidityETH{value: amounts[1]}(
-            address(this),
-            liqFee - amounts[0],
-            0,
-            0,
-            DEAD_ADDRESS,
-            block.timestamp + 15 minutes
-        );
-    }
-
-    function _pairCheck(address _token) external view returns(bool){
+    function _pairCheck(address _token) internal view returns (bool) {
         address token0;
         address token1;
 
-        try IUniswapV2Pair(_token).token0() returns (address _token0) {
-            token0 = _token0;
-        } catch {
-            return false;
-        }
+        if (isContract(_token)) {
+            try IUniswapV2Pair(_token).token0() returns (address _token0) {
+                token0 = _token0;
+            } catch {
+                return false;
+            }
 
-        try IUniswapV2Pair(_token).token1() returns (address _token1) {
-            token1 = _token1;
-        } catch {
-            return false;
-        }
+            try IUniswapV2Pair(_token).token1() returns (address _token1) {
+                token1 = _token1;
+            } catch {
+                return false;
+            }
 
-        if(token0 == address(this) || token1 == address(this)) return true;
-        else return false;
+            address goodPair = IUniswapV2Factory(
+                IUniswapV2Router(dexRouter).factory()
+            ).getPair(token0, token1);
+            if (goodPair != _token) {
+                return false;
+            }
+
+            if (token0 == address(this) || token1 == address(this)) return true;
+            else return false;
+        } else return false;
+    }
+
+    function isContract(address addr) internal view returns (bool) {
+        uint256 size;
+        assembly {
+            size := extcodesize(addr)
+        }
+        return size > 0;
     }
 }
