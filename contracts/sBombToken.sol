@@ -26,7 +26,6 @@ import "./pancake-swap/libraries/TransferHelper.sol";
  */
 contract sBombToken is ERC20, Ownable {
     IUniswapV2Router public dexRouter;
-    //address public pairAddress;
     address public immutable SHIBAKEN;
     address public teamWallet;
     address public lotteryContract;
@@ -40,9 +39,6 @@ contract sBombToken is ERC20, Ownable {
 
     address private constant DEAD_ADDRESS =
         address(0x000000000000000000000000000000000000dEaD);
-
-    bytes4 private constant SELECTOR_0 = bytes4(keccak256(bytes("token0()")));
-    bytes4 private constant SELECTOR_1 = bytes4(keccak256(bytes("token1()")));
 
     bool private inSwap;
 
@@ -108,8 +104,7 @@ contract sBombToken is ERC20, Ownable {
         uint256 amountETHMin,
         address to
     ) external payable lockTheSwap {
-        require(msg.value > 0 && tokenAmount > 0);
-        //super._transfer(_msgSender(), address(this), tokenAmount);
+        require(msg.value > 0 && tokenAmount > 0, "ZERO");
         TransferHelper.safeTransferFrom(address(this), _msgSender(), address(this), tokenAmount);
         _approve(address(this), address(dexRouter), tokenAmount);
         (uint256 token, uint256 eth, ) = dexRouter.addLiquidityETH{value: msg.value}(
@@ -142,8 +137,7 @@ contract sBombToken is ERC20, Ownable {
         uint256 amountToken1Min,
         address to
     ) external lockTheSwap {
-        require(tokenAmount0 > 0 && tokenAmount1 > 0);
-        //super._transfer(_msgSender(), address(this), tokenAmount0);
+        require(tokenAmount0 > 0 && tokenAmount1 > 0, "ZERO");
         TransferHelper.safeTransferFrom(address(this), _msgSender(), address(this), tokenAmount0);
         _approve(address(this), address(dexRouter), tokenAmount0);
         TransferHelper.safeTransferFrom(token1, _msgSender(), address(this), tokenAmount1);
