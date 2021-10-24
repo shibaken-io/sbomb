@@ -72,6 +72,7 @@ contract('Staking', ([
     it('#2 deposit 5 tokens from  and 10 from bob', async () => {
         
         await Staking.deposit(FIVE, { from: alice })
+        await Staking.deposit(TEN, { from: bob })
 
         value = (await Staking.getPoolInfo())._token_speed
         console.log(value.toString())
@@ -85,8 +86,8 @@ contract('Staking', ([
 
         value = await Staking.calculateRewards(alice)
         console.log(value.toString())
-       // value = await Staking.calculateRewards(bob)
-       // console.log(value.toString())  
+        value = await Staking.calculateRewards(bob)
+        console.log(value.toString())  
     }) 
 
 })

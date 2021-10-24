@@ -8,6 +8,7 @@ const { expect } = require("chai");
 const _ZERO = new BN('0')
 const _TWO = new BN('2')
 const _THREE = new BN('3')
+const _FOUR = new BN('4')
 const _FIVE = new BN('5')
 
 const _TEN = new BN('10')
@@ -17,6 +18,7 @@ const _STO = new BN('100')
 const DECIMAL = new BN((10**18).toString())
 const TROI = new BN((3*10**18).toString())
 const FIVE = new BN((5 * 10 ** 18).toString())
+const NINE = new BN((9 * 10 ** 18).toString())
 const TEN = new BN((10 * 10 ** 18).toString())
 const STO = new BN((100 * 10 ** 18).toString())
 const REWARDS = new BN((60 * 60 * 24 * 30 * 12 * 10 ** 18).toString())
@@ -67,8 +69,9 @@ contract('Staking', ([
     
             i = i + 1
         }
+
+        expect(await tokenStaked.balanceOf(Staking.address)).to.be.bignumber.equals(_ZERO)
     })
-    
     
     it('#2 deposit 5 tokens from  alice and after 15 days 10 tokens from bob', async () => {
         
@@ -110,11 +113,16 @@ contract('Staking', ([
             return Math.abs(num -  value < N.mul(_TWO).div(DECIMAL))
         }) 
         
-        value = ((N.mul(_FIFTEEN.mul(DAY)).mul(FIVE)).div(FIVE).div(DECIMAL)).add((N.mul(FIVE).mul(_FIVE.mul(DAY))).div(FIVE.add(TEN)).div(DECIMAL))
+        value = ((N.mul(_FIFTEEN.mul(DAY)).mul(FIVE)).div(FIVE).div(DECIMAL))
+        value = value.add((N.mul(FIVE).mul(_FIVE.mul(DAY))).div(FIVE.add(TEN)).div(DECIMAL))
         
         expect(after_alice - before_alice).to.satisfy(function(num) {
             return Math.abs(num - value < N.mul(_TWO).div(DECIMAL))
         }) 
+
+
+        expect(await tokenStaked.balanceOf(Staking.address)).to.be.bignumber.equals(TEN.add(FIVE))
+
 
     })
 
@@ -191,7 +199,9 @@ contract('Staking', ([
         expect((await Staking.getUserInfo(alice)).amount).to.be.bignumber.equals(_ZERO)
         expect(await tokenStaked.balanceOf(Staking.address)).to.be.bignumber.that.equals(TEN.add(FIVE))
        
-        value = (N.mul(_FIFTEEN).mul(DAY).mul(DECIMAL).div(FIVE).div(DECIMAL)).add(N.mul(_FIVE).mul(DAY).mul(DECIMAL).div(FIVE.add(TEN)).div(DECIMAL)).add(N.mul(_FIVE).mul(DAY).mul(DECIMAL).div(TEN.add(TEN)).div(DECIMAL))
+        value = (N.mul(_FIFTEEN).mul(DAY).mul(DECIMAL).div(FIVE).div(DECIMAL))
+        value = value.add(N.mul(_FIVE).mul(DAY).mul(DECIMAL).div(FIVE.add(TEN)).div(DECIMAL))
+        value = value.add(N.mul(_FIVE).mul(DAY).mul(DECIMAL).div(TEN.add(TEN)).div(DECIMAL))
 
         expect((await Staking.getPoolInfo())._globalKoeff).to.satisfy(function(num) {
             return Math.abs(num - value) < N.div(DECIMAL)
@@ -206,7 +216,10 @@ contract('Staking', ([
 
         await Staking.deposit(FIVE, { from: alice })
 
-        value = (N.mul(_FIFTEEN).mul(DAY).mul(DECIMAL).div(FIVE).div(DECIMAL)).add(N.mul(_FIVE).mul(DAY).mul(DECIMAL).div(FIVE.add(TEN)).div(DECIMAL)).add(N.mul(_FIVE).mul(DAY).mul(DECIMAL).div(TEN.add(TEN)).div(DECIMAL)).add(N.mul(_TWO).mul(DECIMAL).div(TEN.add(FIVE)).div(DECIMAL))
+        value = (N.mul(_FIFTEEN).mul(DAY).mul(DECIMAL).div(FIVE).div(DECIMAL))
+        value = value.add(N.mul(_FIVE).mul(DAY).mul(DECIMAL).div(FIVE.add(TEN)).div(DECIMAL))
+        value = value.add(N.mul(_FIVE).mul(DAY).mul(DECIMAL).div(TEN.add(TEN)).div(DECIMAL))
+        value = value.add(N.mul(_TWO).mul(DECIMAL).div(TEN.add(FIVE)).div(DECIMAL))
         
         expect((await Staking.getPoolInfo())._globalKoeff).to.satisfy(function(num) {
             return Math.abs(num - value) < N.div(DECIMAL)
@@ -222,7 +235,11 @@ contract('Staking', ([
 
         await Staking.deposit(FIVE, { from: eva })
 
-        value = (N.mul(_FIFTEEN).mul(DAY).mul(DECIMAL).div(FIVE).div(DECIMAL)).add(N.mul(_FIVE).mul(DAY).mul(DECIMAL).div(FIVE.add(TEN)).div(DECIMAL)).add(N.mul(_FIVE).mul(DAY).mul(DECIMAL).div(TEN.add(TEN)).div(DECIMAL)).add(N.mul(_TWO).mul(DECIMAL).div(TEN.add(FIVE)).div(DECIMAL)).add(N.mul(_FIVE).mul(DAY).mul(DECIMAL).div(TEN.add(TEN)).div(DECIMAL))
+        value = (N.mul(_FIFTEEN).mul(DAY).mul(DECIMAL).div(FIVE).div(DECIMAL))
+        value = value.add(N.mul(_FIVE).mul(DAY).mul(DECIMAL).div(FIVE.add(TEN)).div(DECIMAL))
+        value = value.add(N.mul(_FIVE).mul(DAY).mul(DECIMAL).div(TEN.add(TEN)).div(DECIMAL))
+        value = value.add(N.mul(_TWO).mul(DECIMAL).div(TEN.add(FIVE)).div(DECIMAL))
+        value = value.add(N.mul(_FIVE).mul(DAY).mul(DECIMAL).div(TEN.add(TEN)).div(DECIMAL))
         
         expect((await Staking.getPoolInfo())._globalKoeff).to.satisfy(function(num) {
             return Math.abs(num - value) < N.div(DECIMAL)
@@ -250,26 +267,29 @@ contract('Staking', ([
         after_bob = await tokenReward.balanceOf(bob)
         after_eva = await tokenReward.balanceOf(eva)
 
-        value = (N.mul(_FIVE).mul(DAY).mul(FIVE)).div(TEN.add(FIVE).add(TEN)).div(DECIMAL).add(N.mul(_FIVE).mul(DAY).mul(FIVE).div(TEN.add(TEN)).div(DECIMAL))
+        value = (N.mul(_FIVE).mul(DAY).mul(FIVE)).div(TEN.add(FIVE).add(TEN)).div(DECIMAL)
+        value = value.add(N.mul(_FIVE).mul(DAY).mul(FIVE).div(TEN.add(TEN)).div(DECIMAL))
     
         expect(after_alice - before_alice).to.satisfy(function(num) {
             return Math.abs(num - value) < N.mul(_TWO).div(DECIMAL) 
         }) 
 
-        value = (N.mul(_FIVE).mul(DAY).mul(TEN)).div(TEN.add(FIVE).add(TEN)).div(DECIMAL).add(N.mul(_FIVE).mul(DAY).mul(TEN).div(TEN.add(TEN)).div(DECIMAL))
+        value = (N.mul(_FIVE).mul(DAY).mul(TEN)).div(TEN.add(FIVE).add(TEN)).div(DECIMAL)
+        value = value.add(N.mul(_FIVE).mul(DAY).mul(TEN).div(TEN.add(TEN)).div(DECIMAL))
 
         expect(after_bob - before_bob).to.satisfy(function(num) {
             return Math.abs(num - value) < N.mul(_TWO).div(DECIMAL)
         })
 
-        value = ((N.mul(_FIVE).mul(DAY).mul(TEN)).div(TEN.add(FIVE).add(TEN)).div(DECIMAL)).add(N.mul(_FIVE).mul(DAY).mul(FIVE).div(TEN.add(TEN)).div(DECIMAL))
+        value = ((N.mul(_FIVE).mul(DAY).mul(TEN)).div(TEN.add(FIVE).add(TEN)).div(DECIMAL))
+        value = value.add(N.mul(_FIVE).mul(DAY).mul(FIVE).div(TEN.add(TEN)).div(DECIMAL))
         
         expect(after_eva - before_eva).to.satisfy(function(num) {
             return Math.abs(num - value) < N.mul(_TWO).div(DECIMAL)
         })
 
     })
-/*
+
     it('#8 increase time on 5 days then withdraw for alice last 5 tokens then increase time for 5 days and check claiming for all accounts', async () => {
         
         await time.increase(time.duration.days(5))
@@ -280,10 +300,10 @@ contract('Staking', ([
 
         after_alice = await tokenReward.balanceOf(alice)
         
-        value = (N.mul(FIVE).mul(_FIVE).mul(DAY)).div(TEN.add(TEN).add(FIVE))
+        value = (N.mul(FIVE).mul(_FIVE).mul(DAY)).div(TEN.add(TEN).add(FIVE)).div(DECIMAL)
 
         expect(after_alice - before_alice).to.satisfy(function(num) {
-            return Math.abs(num - value) < N.mul(_TWO)
+            return Math.abs(num - value) < N.mul(_TWO).div(DECIMAL)
         }) 
         
         let percents = (FIVE.mul(_THREE.add(_THREE))).div(_STO)
@@ -297,10 +317,15 @@ contract('Staking', ([
         expect((await Staking.getUserInfo(alice)).amount).to.be.bignumber.equals(_ZERO)
         expect(await tokenStaked.balanceOf(Staking.address)).to.be.bignumber.that.equals(TEN.add(TEN))
         
-        value = (N.mul(_FIFTEEN).mul(DAY).mul(DECIMAL).div(FIVE)).add(N.mul(_FIVE).mul(DAY).mul(DECIMAL).div(FIVE.add(TEN))).add(N.mul(_FIVE).mul(DAY).mul(DECIMAL).div(TEN.add(TEN))).add(N.mul(_TWO).mul(DECIMAL).div(TEN.add(FIVE))).add(N.mul(_FIVE).mul(DAY).mul(DECIMAL).div(TEN.add(TEN))).add(N.mul(_TEN).mul(DAY).mul(DECIMAL).div(TEN.add(TEN).add(FIVE)))
+        value = (N.mul(_FIFTEEN).mul(DAY).mul(DECIMAL).div(FIVE).div(DECIMAL))
+        value = value.add(N.mul(_FIVE).mul(DAY).mul(DECIMAL).div(FIVE.add(TEN)).div(DECIMAL))
+        value = value.add(N.mul(_FIVE).mul(DAY).mul(DECIMAL).div(TEN.add(TEN)).div(DECIMAL))
+        value = value.add(N.mul(_TWO).mul(DECIMAL).div(TEN.add(FIVE)).div(DECIMAL))
+        value = value.add(N.mul(_FIVE).mul(DAY).mul(DECIMAL).div(TEN.add(TEN)).div(DECIMAL))
+        value = value.add(N.mul(_TEN).mul(DAY).mul(DECIMAL).div(TEN.add(TEN).add(FIVE)).div(DECIMAL))
 
         expect((await Staking.getPoolInfo())._globalKoeff).to.satisfy(function(num) {
-            return Math.abs(num - value) < N.mul(_TWO)
+            return Math.abs(num - value) < N.mul(_TWO).div(DECIMAL)
         });
        
         before_alice = await tokenReward.balanceOf(alice)
@@ -320,25 +345,28 @@ contract('Staking', ([
         after_bob = await tokenReward.balanceOf(bob)
         after_eva = await tokenReward.balanceOf(eva)
 
-        value = (N.mul(_FIVE).mul(DAY).mul(FIVE)).div(TEN.add(FIVE).add(TEN)).add(N.mul(_FIVE).mul(DAY).mul(FIVE).div(TEN.add(TEN)))
+        value = (N.mul(_FIVE).mul(DAY).mul(FIVE)).div(TEN.add(FIVE).add(TEN))
+        value = value.add(N.mul(_FIVE).mul(DAY).mul(FIVE).div(TEN.add(TEN)))
 
         expect((await Staking.getUserInfo(alice)).amount).to.be.bignumber.equals(_ZERO)
         expect((after_alice-before_alice).toString()).to.be.bignumber.equals(_ZERO)
 
-        value = (N.mul(_FIVE).mul(DAY).mul(TEN).div(TEN.add(TEN).add(FIVE))).add((N.mul(_FIVE).mul(DAY).mul(TEN).div(TEN.add(TEN))))
+        value = (N.mul(_FIVE).mul(DAY).mul(TEN).div(TEN.add(TEN).add(FIVE)).div(DECIMAL))
+        value = value.add((N.mul(_FIVE).mul(DAY).mul(TEN).div(TEN.add(TEN)).div(DECIMAL)))
 
         expect(after_bob - before_bob).to.satisfy(function(num) {
-            return Math.abs(num - value) < N.mul(_TWO)
+            return Math.abs(num - value) < N.mul(_TWO).div(DECIMAL)
         })
 
-        value = (N.mul(_FIVE).mul(DAY).mul(TEN).div(TEN.add(TEN).add(FIVE))).add((N.mul(_FIVE).mul(DAY).mul(TEN).div(TEN.add(TEN))))
+        value = (N.mul(_FIVE).mul(DAY).mul(TEN).div(TEN.add(TEN).add(FIVE)).div(DECIMAL))
+        value = value.add((N.mul(_FIVE).mul(DAY).mul(TEN).div(TEN.add(TEN))).div(DECIMAL))
 
         expect(after_eva - before_eva).to.satisfy(function(num) {
-            return Math.abs(num - value) < N.mul(_TWO)  
+            return Math.abs(num - value) < N.mul(_TWO).div(DECIMAL)  
         })
     })
 
-    it('#9 increase time on 5 days then withdraw  for account 2 3 tokens then increase time for 5 days and check claiming for all accounts', async () => {
+    it('#9 increase time on 5 days then withdraw for bob 3 tokens and 5 tokens for eva then increase time for 5 days and check claiming for all accounts', async () => {
         await time.increase(time.duration.days(5))
 
         before_bob = await tokenReward.balanceOf(bob)
@@ -348,10 +376,10 @@ contract('Staking', ([
         after_bob = await tokenReward.balanceOf(bob)
         
         
-        value = (N.mul(TEN).mul(_FIVE).mul(DAY)).div(TEN.add(TEN))
+        value = (N.mul(TEN).mul(_FIVE).mul(DAY)).div(TEN.add(TEN)).div(DECIMAL)
         
         expect(after_bob - before_bob).to.satisfy(function(num) {
-            return Math.abs(num - value) < N.mul(_THREE)
+            return Math.abs(num - value) < N.mul(_THREE).div(DECIMAL)
         }) 
 
         let percents = (FIVE.mul(_THREE.add(_THREE))).div(_STO)
@@ -364,7 +392,13 @@ contract('Staking', ([
         expect((await Staking.getUserInfo(bob)).amount).to.be.bignumber.equals(TEN.sub(TROI))
         expect(await tokenStaked.balanceOf(Staking.address)).to.be.bignumber.that.equals(TEN.add(TEN).sub(TROI))
         
-        value = (N.mul(_FIFTEEN).mul(DAY).mul(DECIMAL).div(FIVE)).add(N.mul(_FIVE).mul(DAY).mul(DECIMAL).div(FIVE.add(TEN))).add(N.mul(_FIVE).mul(DAY).mul(DECIMAL).div(TEN.add(TEN))).add(N.mul(_TWO).mul(DECIMAL).div(TEN.add(FIVE))).add(N.mul(_FIVE).mul(DAY).mul(DECIMAL).div(TEN.add(TEN))).add(N.mul(_TEN).mul(DAY).mul(DECIMAL).div(TEN.add(TEN).add(FIVE))).add(N.mul(_TEN).mul(DAY).mul(DECIMAL).div(TEN.add(TEN)))
+        value = (N.mul(_FIFTEEN).mul(DAY).mul(DECIMAL).div(FIVE).div(DECIMAL))
+        value = value.add(N.mul(_FIVE).mul(DAY).mul(DECIMAL).div(FIVE.add(TEN)).div(DECIMAL))
+        value = value.add(N.mul(_FIVE).mul(DAY).mul(DECIMAL).div(TEN.add(TEN)).div(DECIMAL))
+        value = value.add(N.mul(_TWO).mul(DECIMAL).div(TEN.add(FIVE)).div(DECIMAL))
+        value = value.add(N.mul(_FIVE).mul(DAY).mul(DECIMAL).div(TEN.add(TEN)).div(DECIMAL))
+        value = value.add(N.mul(_TEN).mul(DAY).mul(DECIMAL).div(TEN.add(TEN).add(FIVE)).div(DECIMAL))
+        value = value.add(N.mul(_TEN).mul(DAY).mul(DECIMAL).div(TEN.add(TEN)).div(DECIMAL))
         
         expect((await Staking.getPoolInfo())._globalKoeff).to.satisfy(function(num) {
             return Math.abs(num - value) < N.mul(_TWO) && (num - value) >= 0 
@@ -376,10 +410,10 @@ contract('Staking', ([
 
         after_eva = await tokenReward.balanceOf(eva)
         
-        value = (N.mul(TEN).mul(_FIVE).mul(DAY)).div(TEN.add(TEN))
+        value = (N.mul(TEN).mul(_FIVE).mul(DAY)).div(TEN.add(TEN)).div(DECIMAL)
 
         expect(after_eva - before_eva).to.satisfy(function(num) {
-            return Math.abs(num - value) < N.mul(_THREE)
+            return Math.abs(num - value) < N.mul(_THREE).div(DECIMAL)
         }) 
 
         expect(await tokenStaked.balanceOf(eva)).to.be.bignumber.that.equals(STO.sub(FIVE))
@@ -389,10 +423,17 @@ contract('Staking', ([
         expect((await Staking.getUserInfo(eva)).amount).to.be.bignumber.equals(FIVE)
         expect(await tokenStaked.balanceOf(Staking.address)).to.be.bignumber.that.equals(TEN.add(FIVE).sub(TROI))
         
-        value = (N.mul(_FIFTEEN).mul(DAY).mul(DECIMAL).div(FIVE)).add(N.mul(_FIVE).mul(DAY).mul(DECIMAL).div(FIVE.add(TEN))).add(N.mul(_FIVE).mul(DAY).mul(DECIMAL).div(TEN.add(TEN))).add(N.mul(_TWO).mul(DECIMAL).div(TEN.add(FIVE))).add(N.mul(_FIVE).mul(DAY).mul(DECIMAL).div(TEN.add(TEN))).add(N.mul(_TEN).mul(DAY).mul(DECIMAL).div(TEN.add(TEN).add(FIVE))).add(N.mul(_TEN).mul(DAY).mul(DECIMAL).div(TEN.add(TEN))).add(N.mul(_TWO).mul(DECIMAL).div(TEN.add(TEN).sub(TROI)))
+        value = (N.mul(_FIFTEEN).mul(DAY).mul(DECIMAL).div(FIVE).div(DECIMAL))
+        value = value.add(N.mul(_FIVE).mul(DAY).mul(DECIMAL).div(FIVE.add(TEN)).div(DECIMAL))
+        value = value.add(N.mul(_FIVE).mul(DAY).mul(DECIMAL).div(TEN.add(TEN)).div(DECIMAL))
+        value = value.add(N.mul(_TWO).mul(DECIMAL).div(TEN.add(FIVE)).div(DECIMAL))
+        value = value.add(N.mul(_FIVE).mul(DAY).mul(DECIMAL).div(TEN.add(TEN)).div(DECIMAL))
+        value = value.add(N.mul(_TEN).mul(DAY).mul(DECIMAL).div(TEN.add(TEN).add(FIVE)).div(DECIMAL))
+        value = value.add(N.mul(_TEN).mul(DAY).mul(DECIMAL).div(TEN.add(TEN)).div(DECIMAL))
+        value = value.add(N.mul(_TWO).mul(DECIMAL).div(TEN.add(TEN).sub(TROI)).div(DECIMAL))
         
         expect((await Staking.getPoolInfo())._globalKoeff).to.satisfy(function(num) {
-            return Math.abs(num - value) < N.mul(_TWO)
+            return Math.abs(num - value) < N.mul(_TWO).div(DECIMAL)
         });
 
         before_bob = await tokenReward.balanceOf(bob)
@@ -411,19 +452,19 @@ contract('Staking', ([
         after_bob = await tokenReward.balanceOf(bob)
         after_eva = await tokenReward.balanceOf(eva)
 
-        value = N.mul(_FIVE).mul(DAY).mul(TEN.sub(TROI)).div(TEN.add(FIVE).sub(TROI))
+        value = N.mul(_FIVE).mul(DAY).mul(TEN.sub(TROI)).div(TEN.add(FIVE).sub(TROI)).div(DECIMAL)
 
         expect(after_bob - before_bob).to.satisfy(function(num) {
-            return Math.abs(num - value) < N.mul(_TWO) && (num - value) >= 0 
+            return Math.abs(num - value) < N.mul(_TWO).div(DECIMAL) 
         })
 
-        value = N.mul(_FIVE).mul(DAY).mul(FIVE).div(TEN.add(FIVE).sub(TROI))
+        value = N.mul(_FIVE).mul(DAY).mul(FIVE).div(TEN.add(FIVE).sub(TROI)).div(DECIMAL)
 
         expect(after_eva - before_eva).to.satisfy(function(num) {
-            return Math.abs(num - value) < N.mul(_TWO) && (num - value) >= 0 
+            return Math.abs(num - value) < N.mul(_TWO).div(DECIMAL)
         })
     })
-    
+  
     it('#10 increase tome to end of year and check closing of process', async () => {
         
         before_bob = await tokenReward.balanceOf(bob)
@@ -446,51 +487,47 @@ contract('Staking', ([
 
         await Staking.claim({ from: bob })
         await Staking.withdraw( TROI, { from: eva })
+        expect(await tokenStaked.balanceOf(Staking.address)).to.be.bignumber.that.equals(NINE)
         
         after_bob = await tokenReward.balanceOf(bob)
         after_eva = await tokenReward.balanceOf(eva)
         
-        value = N.mul(((_THREE.mul(_STO)).add(_FIVE)).mul(DAY)).mul(TEN.sub(TROI)).div(TEN.add(FIVE).sub(TROI))
-
+        value = N.mul(((_THREE.mul(_STO)).add(_FIVE)).mul(DAY)).mul(TEN.sub(TROI)).div(TEN.add(FIVE).sub(TROI)).div(DECIMAL)
+      
         expect(after_bob - before_bob).to.satisfy(function(num) {
-            return Math.abs(num - value) < N.mul(_FIVE) 
+            return Math.abs(num - value) < N.mul(_FOUR).div(DECIMAL)
         })
 
-        value = N.mul(((_THREE.mul(_STO)).add(_FIVE)).mul(DAY)).mul(FIVE).div(TEN.add(FIVE).sub(TROI))
-
+        value = N.mul(((_THREE.mul(_STO)).add(_FIVE)).mul(DAY)).mul(FIVE).div(TEN.add(FIVE).sub(TROI)).div(DECIMAL)
+       
         expect(after_eva - before_eva).to.satisfy(function(num) {
-            return Math.abs(num - value) < N.mul(_FIVE) 
+            return Math.abs(num - value) < N.mul(_FOUR).div(DECIMAL)
         })
     })
     
+    
     it('#11 check prevent claiming after end of process', async () =>{
-        await time.increase(time.duration.days(300))
+        expect(await Staking.calculateRewards(alice)).to.be.bignumber.that.equals(_ZERO)
+        expect(await Staking.calculateRewards(bob)).to.be.bignumber.that.equals(_ZERO)
+        expect(await Staking.calculateRewards(eva)).to.be.bignumber.that.equals(_ZERO)
 
-        before_bob = await tokenReward.balanceOf(bob)
-        before_eva = await tokenReward.balanceOf(eva)
+        expect((await Staking.getUserInfo(eva)).amount).to.be.bignumber.equals(FIVE.sub(TROI))
+        expect((await Staking.getUserInfo(bob)).amount).to.be.bignumber.equals(TEN.sub(TROI))
+
+
+        await Staking.withdraw( FIVE.sub(TROI), { from: eva })
+
+        expect(await Staking.calculateRewards(bob)).to.be.bignumber.that.equals(_ZERO)
+        //await Staking.withdraw( TEN.sub(TROI), { from: bob })
+
+        //expect(await tokenStaked.balanceOf(Staking.address)).to.be.bignumber.that.equals(_ZERO)
+        //expect(await tokenStaked.balanceOf(bob)).to.be.bignumber.that.equals(STO)
+       // expect(await tokenStaked.balanceOf(eva)).to.be.bignumber.that.equals(STO)
 
         value = await tokenReward.balanceOf(Staking.address)
-        console.log(value.toString(), REWARDS.toString())
-
-        value = await Staking.calculateRewards(alice)
         console.log(value.toString())
-        value = await Staking.calculateRewards(bob)
-        console.log(value.toString())
-        value = await Staking.calculateRewards(eva)
-        console.log(value.toString())
-        
-        /*await Staking.claim({ from: bob })
-        
-        after_bob = await tokenReward.balanceOf(bob)
-        after_eva = await tokenReward.balanceOf(eva)
-        
-        value = N.mul(((_THREE.mul(_STO)).add(_FIVE)).mul(DAY)).mul(TEN.sub(TROI)).div(TEN.add(FIVE).sub(TROI))
 
-        expect(after_bob - before_bob).to.be.bignumber.that.equals(_ZERO)*/
-    //})
-
-    
-    
+    })  
 })
 
 

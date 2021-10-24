@@ -127,9 +127,17 @@ contract StakingReward is Context {
         require(_user.amount >= _amount, "Staking: _user.amount >= amount");
 
         uint256 rewards = calculateRewards(investor);
-
+        
+        uint256 stamp;
+       
+        if (block.timestamp - startProcess < YEAR) {
+            stamp = block.timestamp;
+        } else {
+            stamp = startProcess + YEAR;
+        }
+         
         globalKoeff +=
-            (token_speed * (block.timestamp - lastUpdate)) /
+            (token_speed * (stamp - lastUpdate)) /
             stakedSum;
         stakedSum -= _amount;
         users[investor].amount = _user.amount - _amount;
@@ -137,11 +145,9 @@ contract StakingReward is Context {
             ((_user.amount - _amount) * globalKoeff) /
             DECIMAL;
 
-        if (block.timestamp - startProcess < YEAR) {
-            lastUpdate = block.timestamp;
-        } else {
-            lastUpdate = YEAR + startProcess;
-        }
+       
+        lastUpdate = stamp;
+        
 
         uint256 toDead;
         uint256 toDev;
@@ -164,11 +170,13 @@ contract StakingReward is Context {
                 "Staking: fee !transfer"
             );
         }
+        if (rewards != 0) {
+            require(
+                IERC20(rewardToken).transfer(investor, rewards),
+                "Staking: reward !transfer"
+            );
+        }
 
-        require(
-            IERC20(rewardToken).transfer(investor, rewards),
-            "Staking: reward !transfer"
-        );
         require(
             IERC20(stakedToken).transfer(investor, _amount),
             "Staking: removed  !transfer"
@@ -189,8 +197,8 @@ contract StakingReward is Context {
         }
 
         UserInfo memory _user = users[_investor];
-        rewards =
-            (token_speed * _user.amount * (stamp - lastUpdate)) /
+        uint256 time = (stamp - lastUpdate);
+        rewards = (token_speed * _user.amount * time) /
             (DECIMAL * stakedSum) +
             (globalKoeff * _user.amount) /
             DECIMAL -
