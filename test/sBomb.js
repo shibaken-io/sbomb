@@ -15,6 +15,7 @@ let pancakePairInstant;
 
 const SBombToken = artifacts.require("sBombToken");
 const TestToken = artifacts.require("TestToken");
+const ShibakenToken = artifacts.require("ShibaKen");
 
 const MINUS_ONE = new BN(-1);
 const ZERO = new BN(0);
@@ -66,7 +67,8 @@ contract(
         let sBombToken, shibakenToken, sBombEthLP, sBombShibakenLP, shibakenEthLp, testToken, sBombTestLp;
 
         before(async()=>{
-            shibakenToken = await TestToken.new("ShibaKen.finance", "SHIBAKEN");
+            shibakenToken = await ShibakenToken.new();
+            await shibakenToken.initialize(user3);
             testToken = await TestToken.new("TestToken", "TEST", {from: user1});
 
             wethInst = await WETH.new(
