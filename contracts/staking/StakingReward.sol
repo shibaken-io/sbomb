@@ -180,6 +180,9 @@ contract StakingReward is Context, Initializable{
             stamp = block.timestamp;
         } else {
             stamp = startProcess + YEAR;
+            if ((stakedSum - _amount) == 0) {
+                rewards = IERC20(rewardToken).balanceOf(address(this));
+            }
         }
 
         globalKoeff +=

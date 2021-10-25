@@ -531,16 +531,13 @@ contract('Staking', ([
         after_eva = await tokenReward.balanceOf(eva)
         
         value = N.mul(((_THREE.mul(_STO)).add(_FIVE)).mul(DAY)).mul(TEN.sub(TROI)).div(TEN.add(FIVE).sub(TROI)).div(DECIMAL)
-      
-        expect(after_bob - before_bob).to.satisfy(function(num) {
-            return Math.abs(num - value) < N.mul(_FOUR).div(DECIMAL)
-        })
 
+        expect(Math.abs((after_bob - before_bob)-value)).to.be.lessThan(90*3)
+        
         value = N.mul(((_THREE.mul(_STO)).add(_FIVE)).mul(DAY)).mul(FIVE).div(TEN.add(FIVE).sub(TROI)).div(DECIMAL)
-       
-        expect(after_eva - before_eva).to.satisfy(function(num) {
-            return Math.abs(num - value) < N.mul(_FOUR).div(DECIMAL)
-        })
+        
+        expect(Math.abs((after_eva- before_eva)-value)).to.be.lessThan(90*4)
+
     })
     
     it('#11 check prevent claiming after end of process', async () =>{
@@ -561,10 +558,10 @@ contract('Staking', ([
 
         expect(await tokenStaked.balanceOf(Staking.address)).to.be.bignumber.that.equals(_ZERO)
         expect(await tokenStaked.balanceOf(bob)).to.be.bignumber.that.equals(STO)
-        expect(await tokenStaked.balanceOf(eva)).to.be.bignumber.that.equals(STO)
-
-        value = await tokenReward.balanceOf(Staking.address) 
-        expect(await tokenReward.balanceOf(Staking.address)).to.be.bignumber.that.lessThan(N.mul(_TWO).div(DECIMAL))
+        expect(await tokenStaked.balanceOf(eva)).to.be.bignumber.that.equals(STO) 
+        expect(await tokenReward.balanceOf(Staking.address)).to.be.bignumber.that.equals(_ZERO)
+        expect((await Staking.getPoolInfo())._stakedSum).to.be.bignumber.that.equals(_ZERO)
+  
     })
     
 })
