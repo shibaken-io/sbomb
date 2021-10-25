@@ -15,5 +15,5 @@ module.exports = async function (deployer, network, accounts) {
 
   //await reward.approve(Staking.address, REWARDS, {from: owner})
         
-  deployer.deploy(Staking, staked.address, reward.address, accounts[9], YEAR, REWARDS);
+  deployer.deploy(Staking);
 };
