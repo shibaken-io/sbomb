@@ -2,8 +2,11 @@
   "dependencies": {
     "@chainlink/contracts": "^0.2.2",
     "@openzeppelin/contracts": "^4.3.2",
+    "@openzeppelin/test-helpers": "^0.5.15",
     "@truffle/hdwallet-provider": "^1.5.1",
+    "chai": "^4.3.4",
     "dotenv": "^10.0.0",
+    "solidity-coverage": "^0.7.17",
     "truffle-plugin-verify": "^0.5.15",
     "web3": "^1.6.0"
   }
