@@ -332,9 +332,6 @@ contract('Staking', ([
 
         rewards_alice = (((new BN(end)).sub(new BN(timestamp_claim_alice))).mul(N).mul(FIVE).div(FIVE.add(TEN)).div(MULTIPLIER))
         rewards_bob = (((new BN(end)).sub(new BN(timestamp_claim_bob))).mul(N).mul(TEN).div(FIVE.add(TEN)).div(MULTIPLIER))
-        console.log(rewards_bob.toString())
-        console.log((await Staking.nextReward(bob)).toString())
-        console.log((await tokenReward.balanceOf(Staking.address)).toString())
 
         timestamp_claim_bob_1 = (await web3.eth.getBlock((await Staking.claim({ from: bob })).receipt.blockNumber)).timestamp 
     })

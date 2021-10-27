@@ -203,25 +203,28 @@ contract StakingReward is Context, Initializable {
 
         uint256 toDead;
         uint256 toDev;
+
         if (block.timestamp - _user.start < LOCK_UP_PERIOD) {
+            
             toDead = (_amount * THREE_PERCENTS) / HUNDRED_PERCENTS;
             toDev = (_amount * THREE_PERCENTS) / HUNDRED_PERCENTS;
             _amount -= toDead;
             _amount -= toDev;
-        }
+        
+            if (toDead > 0) {
+                require(
+                    IERC20(stakedToken).transfer(DEAD_WALLET, toDead),
+                    "Staking: !transfer"
+                );
+            }
 
-        if (toDead > 0) {
-            require(
-                IERC20(stakedToken).transfer(DEAD_WALLET, toDead),
-                "Staking: !transfer"
-            );
-        }
-
-        if (toDev > 0) {
-            require(
-                IERC20(stakedToken).transfer(devWallet, toDev),
-                "Staking: !transfer"
-            );
+            if (toDev > 0) {
+                require(
+                    IERC20(stakedToken).transfer(devWallet, toDev),
+                    "Staking: !transfer"
+                );
+            }
+            
         }
 
         require(
