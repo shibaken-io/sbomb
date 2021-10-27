@@ -33,7 +33,6 @@ contract StakingReward is Context, Initializable {
         uint256 start;
         uint256 globalCoefficientMinus;
         uint256 assignedReward;
-        // uint256 unwantedReward; // amount of rewards which user should not get next time
     }
 
     event DepositTokenForUser(
@@ -249,6 +248,7 @@ contract StakingReward is Context, Initializable {
             }
             amountOfHolders -= 1;
         }
+
         if( amountOfHolders == 0){
             rewards = IERC20(rewardToken).balanceOf(address(this));
         }
