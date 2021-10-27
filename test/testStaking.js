@@ -86,8 +86,8 @@ contract('Staking', ([
 
         expect((await Staking.getPoolInfo())._stakedToken).to.be.equals(tokenStaked.address)
         expect((await Staking.getPoolInfo())._devWallet).to.be.equals(devWallet)
-        expect((await Staking.getPoolInfo())._globalKoeff).to.be.bignumber.equals(_ZERO)
-        expect((await Staking.getPoolInfo())._token_speed).to.be.bignumber.equals(N)
+        expect((await Staking.getPoolInfo())._globalCoefficient).to.be.bignumber.equals(_ZERO)
+        expect((await Staking.getPoolInfo())._tokenRate).to.be.bignumber.equals(N)
         expect((await Staking.getPoolInfo())._stakedSum).to.be.bignumber.equals(_ZERO)
        
         let ar = [alice, bob, eva]
@@ -124,7 +124,7 @@ contract('Staking', ([
         
         value = (N.mul(_FIFTEEN).mul(DAY).mul(DECIMAL).div(FIVE).div(DECIMAL))
 
-        expect((await Staking.getPoolInfo())._globalKoeff).to.satisfy(function(num) {
+        expect((await Staking.getPoolInfo())._globalCoefficient).to.satisfy(function(num) {
             return Math.abs(num - value) < N.mul(_TWO) && (num - value) >= 0 
         });
 
@@ -169,7 +169,7 @@ contract('Staking', ([
 
         value = (N.mul(_FIFTEEN).mul(DAY).mul(DECIMAL).div(FIVE).div(DECIMAL)).add(N.mul(_FIVE).mul(DAY).mul(DECIMAL).div(FIVE.add(TEN)).div(DECIMAL))
 
-        expect((await Staking.getPoolInfo())._globalKoeff).to.satisfy(function(num) {
+        expect((await Staking.getPoolInfo())._globalCoefficient).to.satisfy(function(num) {
             return Math.abs(num - value) < N.mul(_THREE).div(DECIMAL)
         });
               
@@ -250,7 +250,7 @@ contract('Staking', ([
         value = value.add(N.mul(_FIVE).mul(DAY).mul(DECIMAL).div(FIVE.add(TEN)).div(DECIMAL))
         value = value.add(N.mul(_FIVE).mul(DAY).mul(DECIMAL).div(TEN.add(TEN)).div(DECIMAL))
 
-        expect((await Staking.getPoolInfo())._globalKoeff).to.satisfy(function(num) {
+        expect((await Staking.getPoolInfo())._globalCoefficient).to.satisfy(function(num) {
             return Math.abs(num - value) < N.div(DECIMAL)
         });
 
@@ -268,7 +268,7 @@ contract('Staking', ([
         value = value.add(N.mul(_FIVE).mul(DAY).mul(DECIMAL).div(TEN.add(TEN)).div(DECIMAL))
         value = value.add(N.mul(_TWO).mul(DECIMAL).div(TEN.add(FIVE)).div(DECIMAL))
         
-        expect((await Staking.getPoolInfo())._globalKoeff).to.satisfy(function(num) {
+        expect((await Staking.getPoolInfo())._globalCoefficient).to.satisfy(function(num) {
             return Math.abs(num - value) < N.div(DECIMAL)
         });
         
@@ -288,7 +288,7 @@ contract('Staking', ([
         value = value.add(N.mul(_TWO).mul(DECIMAL).div(TEN.add(FIVE)).div(DECIMAL))
         value = value.add(N.mul(_FIVE).mul(DAY).mul(DECIMAL).div(TEN.add(TEN)).div(DECIMAL))
         
-        expect((await Staking.getPoolInfo())._globalKoeff).to.satisfy(function(num) {
+        expect((await Staking.getPoolInfo())._globalCoefficient).to.satisfy(function(num) {
             return Math.abs(num - value) < N.div(DECIMAL)
         }); 
         
@@ -371,7 +371,7 @@ contract('Staking', ([
         value = value.add(N.mul(_FIVE).mul(DAY).mul(DECIMAL).div(TEN.add(TEN)).div(DECIMAL))
         value = value.add(N.mul(_TEN).mul(DAY).mul(DECIMAL).div(TEN.add(TEN).add(FIVE)).div(DECIMAL))
 
-        expect((await Staking.getPoolInfo())._globalKoeff).to.satisfy(function(num) {
+        expect((await Staking.getPoolInfo())._globalCoefficient).to.satisfy(function(num) {
             return Math.abs(num - value) < N.mul(_TWO).div(DECIMAL)
         });
        
@@ -446,7 +446,7 @@ contract('Staking', ([
         value = value.add(N.mul(_TEN).mul(DAY).mul(DECIMAL).div(TEN.add(TEN).add(FIVE)).div(DECIMAL))
         value = value.add(N.mul(_TEN).mul(DAY).mul(DECIMAL).div(TEN.add(TEN)).div(DECIMAL))
         
-        expect(Math.abs((await Staking.getPoolInfo())._globalKoeff-value)).to.be.lessThan(90*2)
+        expect(Math.abs((await Staking.getPoolInfo())._globalCoefficient-value)).to.be.lessThan(90*2)
         
         before_eva = await tokenReward.balanceOf(eva)
 
@@ -474,7 +474,7 @@ contract('Staking', ([
         value = value.add(N.mul(_TWO).mul(DECIMAL).div(TEN.add(TEN).sub(TROI)).div(DECIMAL))
         
    
-        expect(Math.abs((await Staking.getPoolInfo())._globalKoeff-value)).to.be.lessThan(90*2)
+        expect(Math.abs((await Staking.getPoolInfo())._globalCoefficient-value)).to.be.lessThan(90*2)
 
         before_bob = await tokenReward.balanceOf(bob)
         before_eva = await tokenReward.balanceOf(eva)

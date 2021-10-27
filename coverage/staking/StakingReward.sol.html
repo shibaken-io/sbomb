@@ -580,7 +580,7 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">41×</span>
-<span class="cline-any cline-yes">28×</span>
+<span class="cline-any cline-yes">27×</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -598,7 +598,7 @@ import "@openzeppelin/contracts/utils/Context.sol";
 &nbsp;
 contract StakingReward is Context, Initializable{
     
-    uint256 private constant DECIMAL = 10**18;
+    uint256 private constant MULTIPLIER = 10**18;
     uint256 private constant LOCK_UP_PERIOD = 60 * 60 * 24 * 30;
     uint256 private constant YEAR = 60 * 60 * 24 * 30 * 12;
     address private constant DEAD_WALLET =
@@ -609,10 +609,10 @@ contract StakingReward is Context, Initializable{
     address public devWallet;
     uint256 public stakedSum;
 &nbsp;
-    uint256 private globalKoeff;
+    uint256 private globalCoefficient; 
     uint256 private startProcess;
     uint256 private lastUpdate;
-    uint256 private token_speed;
+    uint256 private tokenRate;
 &nbsp;
     mapping(address =&gt; UserInfo) private users;
 &nbsp;
@@ -642,7 +642,7 @@ contract StakingReward is Context, Initializable{
     );
 &nbsp;
     modifier contractWasInitiated() {
-        require(token_speed &gt; 0, "Staking: not init");
+        require(tokenRate &gt; 0, "Staking: not init");
 &nbsp;
         _;
     }
@@ -676,7 +676,7 @@ contract StakingReward is Context, Initializable{
         rewardToken = _rewardToken;
         stakedToken = _stakedToken;
         devWallet = _devWallet;
-        token_speed = balance * DECIMAL / _period;
+        tokenRate = balance * MULTIPLIER / _period;
 &nbsp;
     }
 &nbsp;
@@ -699,13 +699,13 @@ contract StakingReward is Context, Initializable{
         UserInfo memory _user = users[investor];
 &nbsp;
         if (lastUpdate != 0) {
-            globalKoeff +=
-                (token_speed * (block.timestamp - lastUpdate)) /
+            globalCoefficient +=
+                (tokenRate * (block.timestamp - lastUpdate)) /
                 stakedSum;
 &nbsp;
             users[investor].unwantedReward =
                 _user.unwantedReward +
-                _amount * globalKoeff;
+                _amount * globalCoefficient;
         }
 &nbsp;
         stakedSum += _amount;
@@ -738,17 +738,17 @@ contract StakingReward is Context, Initializable{
     function getPoolInfo() external view returns (
             address _stakedToken,
             address _devWallet,
-            uint256 _globalKoeff,
+            uint256 _globalCoefficient,
             uint256 _lastUpdate,
-            uint256 _token_speed,
+            uint256 _tokenRate,
             uint256 _stakedSum
         )
     {
         _stakedToken = stakedToken;
         _devWallet = devWallet;
-        _globalKoeff = globalKoeff;
+        _globalCoefficient = globalCoefficient;
         _lastUpdate = lastUpdate;
-        _token_speed = token_speed;
+        _tokenRate = tokenRate;
         _stakedSum = stakedSum;
     }
 &nbsp;
@@ -764,7 +764,7 @@ contract StakingReward is Context, Initializable{
         require(_amount &gt; 0, "Staking: amount &gt; 0");
         require(_user.amount &gt;= _amount, "Staking: _user.amount &gt;= amount");
 &nbsp;
-        uint256 rewards = calculateRewards(investor)/DECIMAL;
+        uint256 rewards = calculateRewards(investor) / MULTIPLIER;
         
         uint256 stamp;
         if (block.timestamp - startProcess &lt; YEAR) {
@@ -776,13 +776,13 @@ contract StakingReward is Context, Initializable{
             }
         }
 &nbsp;
-        globalKoeff +=
-            (token_speed * (stamp - lastUpdate)) /
+        globalCoefficient +=
+            (tokenRate * (stamp - lastUpdate)) /
             stakedSum;
         stakedSum -= _amount;
         users[investor].amount = _user.amount - _amount;
         users[investor].unwantedReward =
-            ((_user.amount - _amount) * globalKoeff);
+            ((_user.amount - _amount) * globalCoefficient);
         lastUpdate = stamp;
         
         uint256 toDead;
@@ -821,8 +821,8 @@ contract StakingReward is Context, Initializable{
 &nbsp;
         UserInfo memory _user = users[_investor];
 &nbsp;
-        rewards = ((token_speed * _user.amount * (stamp - lastUpdate))/stakedSum +
-            (globalKoeff * _user.amount)); 
+        rewards = ((tokenRate * _user.amount * (stamp - lastUpdate))/stakedSum +
+            (globalCoefficient * _user.amount)); 
         rewards = rewards - _user.unwantedReward;
 &nbsp;
     }
@@ -839,7 +839,7 @@ contract StakingReward is Context, Initializable{
         require(rewards &gt; 0, 'Staking: rewards != 0');
 &nbsp;
         users[investor].unwantedReward = _user.unwantedReward + rewards;
-        rewards = rewards/DECIMAL;
+        rewards = rewards / MULTIPLIER;
 &nbsp;
         if (block.timestamp - startProcess &gt;= YEAR) {
             withdraw(_user.amount);
@@ -868,7 +868,7 @@ contract StakingReward is Context, Initializable{
 </div><!-- /wrapper -->
 <div class='footer quiet pad2 space-top1 center small'>
   Code coverage
-  generated by <a href="http://istanbul-js.org/" target="_blank">istanbul</a> at Mon Oct 25 2021 19:07:15 GMT+0700 (Новосибирск, стандартное время)
+  generated by <a href="http://istanbul-js.org/" target="_blank">istanbul</a> at Mon Oct 25 2021 21:24:02 GMT+0700 (Новосибирск, стандартное время)
 </div>
 </div>
 <script src="../prettify.js"></script>
