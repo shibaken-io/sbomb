@@ -15,6 +15,7 @@ contract StakingReward is Context, Initializable {
     uint256 private startProcess;
     uint256 private lastUpdate;
     uint256 private tokenRate;
+    uint256 private amountOfHolders;
 
     uint256 private constant THREE_PERCENTS = 3;
     uint256 private constant HUNDRED_PERCENTS = 100;
@@ -100,11 +101,13 @@ contract StakingReward is Context, Initializable {
         }
 
         address investor = _msgSender();
-
+        
+        if (users[investor].amount == 0) amountOfHolders += 1;
+        
         calculateRewards(investor, _amount, 0);
-
+        
         if (users[investor].start == 0) users[investor].start = block.timestamp;
-
+         
         require(
             IERC20(stakedToken).transferFrom(investor, address(this), _amount),
             "Staking: deposited !transfer"
@@ -238,16 +241,20 @@ contract StakingReward is Context, Initializable {
 
         uint256 rewards = users[investor].assignedReward;
         users[investor].assignedReward = 0;
-
-        require(rewards > 0, "Staking: rewards != 0");
-
-        users[investor].assignedReward = 0;
         rewards = rewards / (MULTIPLIER * MULTIPLIER);
 
-        if (block.timestamp - startProcess >= YEAR && _user.amount > 0) {
-            withdraw(_user.amount);
+        if (block.timestamp - startProcess >= YEAR ){
+            if (_user.amount > 0) {
+                withdraw(_user.amount);
+            }
+            amountOfHolders -= 1;
+        }
+        if( amountOfHolders == 0){
+            rewards = IERC20(rewardToken).balanceOf(address(this));
         }
 
+        require(rewards > 0, "Staking: rewards != 0");
+        
         require(
             IERC20(rewardToken).transfer(investor, rewards),
             "Staking: reward !transfer"

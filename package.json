@@ -24,6 +24,7 @@
     "truffle-plugin-verify": "^0.5.15"
   },
   "devDependencies": {
+    "eth-gas-reporter": "^0.2.22",
     "solidity-coverage": "^0.7.17",
     "truffle": "^5.4.16"
   }

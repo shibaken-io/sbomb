@@ -27,7 +27,7 @@ module.exports = {
    * $ truffle test --network <network-name>
    */
 
-   plugins: ['truffle-plugin-verify', 'truffle-contract-size', "solidity-coverage"],
+  plugins: ['truffle-plugin-verify', 'truffle-contract-size', "solidity-coverage"],
 
   api_keys: {
       etherscan: ETHERSCAN_API_KEY,
@@ -74,6 +74,13 @@ module.exports = {
         //gas: DEFAULT_OPERATIONS_GASLIMIT,
         skipDryRun: true
     }
+  },
+  /*mocha: {
+    reporter: 'eth-gas-reporter',
+    reporterOptions : {    
+      currency: 'USD',
+      enabled: (process.env.REPORT_GAS === "true") ? true : false
+    } // See options below
   },
 
   // Set default mocha options here, use special reporters etc.
