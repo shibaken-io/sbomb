@@ -44,6 +44,13 @@ module.exports = {
             gas: DEFAULT_OPERATIONS_GASLIMIT,
             skipDryRun: true
         },
+        rinkeby: {
+            provider: () => new HDWalletProvider(MNEMONIC, "https://rinkeby.infura.io/v3/" + INFURA_ID_PROJECT),
+            network_id: 4,
+            confirmations: 2,
+            gas: DEPLOY_GAS_LIMIT,
+            skipDryRun: true
+        },
         bscTestnet: {
             provider: () => new HDWalletProvider(MNEMONIC, "https://data-seed-prebsc-1-s3.binance.org:8545"),
             network_id: 97,
