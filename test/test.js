@@ -471,7 +471,7 @@ contract('Staking', ([
         try {
             expect((await Staking.getReward(alice))).to.be.bignumber.equals(rewards_alice)
         } catch {
-            expect(Math.abs((await Staking.getReward(alice)).sub(rewards_alice))).to.be.lessThanOrEqual(parseInt(N.div(MULTIPLIER)))
+            expect(Math.abs((await Staking.getReward(alice)).sub(rewards_alice))).to.be.lessThanOrEqual(parseInt(N.mul(_TWO).div(MULTIPLIER)))
         }
 
         try {
@@ -488,6 +488,9 @@ contract('Staking', ([
         expect(await tokenReward.balanceOf(Staking.address)).to.be.bignumber.that.equals(_ZERO)
         expect(await tokenReward.balanceOf(alice)).to.be.bignumber.that.equals(rewards_alice)
         expect(await tokenReward.balanceOf(bob)).to.be.bignumber.that.equals(REWARDS.sub(rewards_alice))
+
+        await Staking.withdraw(FIVE, { from: alice })
+        await Staking.withdraw(FIVE, { from: bob })
 
         expect(await tokenStaked.balanceOf(alice)).to.be.bignumber.that.equals(STO)
         expect(await tokenStaked.balanceOf(bob)).to.be.bignumber.that.equals(STO) 
@@ -539,7 +542,7 @@ contract('Staking', ([
         try {
             expect((await Staking.getReward(alice))).to.be.bignumber.equals(rewards_alice)
         } catch {
-            expect(Math.abs((await Staking.getReward(alice)).sub(rewards_alice))).to.be.lessThanOrEqual(parseInt(N.div(MULTIPLIER)))
+            expect(Math.abs((await Staking.getReward(alice)).sub(rewards_alice))).to.be.lessThanOrEqual(parseInt(N.mul(_TWO).div(MULTIPLIER)))
         }
         
         try {
@@ -573,17 +576,7 @@ contract('Staking', ([
             "Staking: amount == 0"
         ); 
 
-        await expectRevert(
-            Staking.withdraw( FIVE, { from: alice }) ,
-            "Staking: _user.amount > 0"
-        ); 
-
         await Staking.deposit( FIVE, { from: alice })
-
-        await expectRevert(
-            Staking.withdraw( _ZERO, { from: alice }) ,
-            "Staking: amount > 0"
-        ); 
 
         await expectRevert(
             Staking.withdraw( TEN, { from: alice }) ,

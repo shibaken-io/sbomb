@@ -17,8 +17,9 @@ contract StakingReward is Context, Initializable {
     uint256 private tokenRate;
     uint256 private amountOfHolders;
 
-    uint256 private constant THREE_PERCENTS = 3;
-    uint256 private constant HUNDRED_PERCENTS = 100;
+    uint256 private constant percentToDev = 3;
+    uint256 private constant percentToDead = 3;
+    uint256 private constant PERCENT_BASE = 100;
 
     uint256 private constant MULTIPLIER = 10**18;
     uint256 private constant LOCK_UP_PERIOD = 60 * 60 * 24 * 30;
@@ -43,12 +44,7 @@ contract StakingReward is Context, Initializable {
 
     event ClaimForUser(address investor, uint256 amountRewarded);
 
-    event WithdrawForUser(
-        address investor,
-        uint256 amountStaked,
-        uint256 feeTodev,
-        uint256 feeToDead
-    );
+    event WithdrawForUser(address investor, uint256 amountStaked);
 
     modifier contractWasInitiated() {
         require(tokenRate > 0, "Staking: not init");
@@ -99,18 +95,21 @@ contract StakingReward is Context, Initializable {
             );
         }
 
+        uint256 amountBefore = IERC20(stakedToken).balanceOf(address(this));
         address investor = _msgSender();
 
         if (users[investor].amount == 0) amountOfHolders += 1;
-
-        updateRewards(investor, _amount, 0);
-
         if (users[investor].start == 0) users[investor].start = block.timestamp;
 
         require(
             IERC20(stakedToken).transferFrom(investor, address(this), _amount),
             "Staking: deposited !transfer"
         );
+
+        _amount = IERC20(stakedToken).balanceOf(address(this)) - amountBefore;
+
+        updateUser(investor, int256(_amount));
+        updatePool(int256(_amount));
 
         emit DepositTokenForUser(investor, _amount, users[investor].start);
     }
@@ -156,19 +155,17 @@ contract StakingReward is Context, Initializable {
         _stakedSum = stakedSum;
     }
 
-    function getReward(address investor)
+    /**
+     * @param _investor address of user
+     * @return rewards next rewards for investor
+     */
+    function getReward(address _investor)
         external
         view
         returns (uint256 rewards)
     {
-        uint256 stamp;
-        if (block.timestamp - startProcess < YEAR) {
-            stamp = block.timestamp;
-        } else {
-            stamp = startProcess + YEAR;
-        }
-
-        rewards = calculateReward(investor, stamp) / (MULTIPLIER * MULTIPLIER);
+        uint256 stamp = getStamp();
+        rewards = calculateReward(_investor, stamp) / (MULTIPLIER * MULTIPLIER);
     }
 
     /**
@@ -178,18 +175,17 @@ contract StakingReward is Context, Initializable {
         address investor = _msgSender();
         UserInfo memory _user = users[investor];
 
-        require(_user.amount > 0, "Staking: _user.amount > 0");
         require(_amount > 0, "Staking: amount > 0");
         require(_user.amount >= _amount, "Staking: _user.amount >= amount");
 
-        updateRewards(investor, 0, _amount);
-
-        uint256 toDead;
-        uint256 toDev;
+        updateUser(investor, (-1) * int256(_amount));
+        updatePool((-1) * int256(_amount));
 
         if (block.timestamp - _user.start < LOCK_UP_PERIOD) {
-            toDead = (_amount * THREE_PERCENTS) / HUNDRED_PERCENTS;
-            toDev = (_amount * THREE_PERCENTS) / HUNDRED_PERCENTS;
+            uint256 toDead;
+            uint256 toDev;
+            toDead = (_amount * percentToDead) / PERCENT_BASE;
+            toDev = (_amount * percentToDev) / PERCENT_BASE;
             _amount -= toDead;
             _amount -= toDev;
 
@@ -199,7 +195,6 @@ contract StakingReward is Context, Initializable {
                     "Staking: !transfer"
                 );
             }
-
             if (toDev > 0) {
                 require(
                     IERC20(stakedToken).transfer(devWallet, toDev),
@@ -213,13 +208,13 @@ contract StakingReward is Context, Initializable {
             "Staking: !transfer"
         );
 
-        emit WithdrawForUser(investor, _amount, toDev, toDead);
+        emit WithdrawForUser(investor, _amount);
     }
 
     function claim() public contractWasInitiated {
         address investor = _msgSender();
 
-        updateRewards(investor, 0, 0);
+        updateUser(investor, 0);
 
         uint256 rewards = users[investor].assignedReward /
             (MULTIPLIER * MULTIPLIER);
@@ -228,13 +223,8 @@ contract StakingReward is Context, Initializable {
         require(rewards > 0, "Staking: rewards != 0");
 
         if (block.timestamp - startProcess >= YEAR) {
-            UserInfo memory _user = users[investor];
-            if (_user.amount > 0) {
-                withdraw(_user.amount);
-            }
             amountOfHolders -= 1;
         }
-
         if (amountOfHolders == 0) {
             rewards = IERC20(rewardToken).balanceOf(address(this));
         }
@@ -275,46 +265,34 @@ contract StakingReward is Context, Initializable {
         }
     }
 
-    function updateRewards(
-        address _investor,
-        uint256 _increaseAmount,
-        uint256 _decreaseAmount
-    ) private contractWasInitiated {
-        uint256 stamp;
-        if (block.timestamp - startProcess < YEAR) {
-            stamp = block.timestamp;
-        } else {
-            stamp = startProcess + YEAR;
-        }
+    function updatePool(int256 _amount) private {
+        uint256 stamp = getStamp();
+        if (lastUpdate != 0 && stakedSum != 0)
+            globalCoefficient +=
+                ((stamp - lastUpdate) * MULTIPLIER) /
+                stakedSum;
+        stakedSum = uint256(int256(stakedSum) + _amount);
+        lastUpdate = stamp;
+    }
 
-        UserInfo memory _user = users[_investor];
-        uint256 multiplier = MULTIPLIER;
-
+    function updateUser(address _investor, int256 _amount) private {
+        uint256 stamp = getStamp();
         users[_investor].assignedReward = calculateReward(_investor, stamp);
         if (stakedSum != 0)
             users[_investor].globalCoefficientMinus =
                 globalCoefficient +
-                ((stamp - lastUpdate) * multiplier) /
+                ((stamp - lastUpdate) * MULTIPLIER) /
                 stakedSum;
+        users[_investor].amount = uint256(
+            int256(users[_investor].amount) + _amount
+        );
+    }
 
-        if (_increaseAmount > 0) {
-            if (lastUpdate != 0 && stakedSum != 0)
-                globalCoefficient +=
-                    ((stamp - lastUpdate) * multiplier) /
-                    stakedSum;
-            stakedSum += _increaseAmount;
-            lastUpdate = block.timestamp;
-            users[_investor].amount = _user.amount + _increaseAmount;
-        }
-
-        if (_decreaseAmount > 0) {
-            if (lastUpdate != 0 && stakedSum != 0)
-                globalCoefficient +=
-                    ((stamp - lastUpdate) * multiplier) /
-                    stakedSum;
-            stakedSum -= _decreaseAmount;
-            lastUpdate = stamp;
-            users[_investor].amount = _user.amount - _decreaseAmount;
+    function getStamp() private view returns (uint256 stamp) {
+        if (block.timestamp - startProcess < YEAR) {
+            stamp = block.timestamp;
+        } else {
+            stamp = startProcess + YEAR;
         }
     }
 }
