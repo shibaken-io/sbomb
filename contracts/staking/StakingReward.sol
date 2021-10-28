@@ -89,7 +89,6 @@ contract StakingReward is Context, Initializable {
      * @param _amount tokens for depositing
      */
     function deposit(uint256 _amount) external contractWasInitiated {
-        
         require(_amount > 0, "Staking: amount == 0");
 
         if (startProcess == 0) startProcess = block.timestamp;
@@ -157,15 +156,18 @@ contract StakingReward is Context, Initializable {
         _stakedSum = stakedSum;
     }
 
-    function getReward(address investor) external view returns(uint256 rewards){
-
+    function getReward(address investor)
+        external
+        view
+        returns (uint256 rewards)
+    {
         uint256 stamp;
         if (block.timestamp - startProcess < YEAR) {
             stamp = block.timestamp;
         } else {
             stamp = startProcess + YEAR;
         }
-        
+
         rewards = calculateReward(investor, stamp) / (MULTIPLIER * MULTIPLIER);
     }
 
@@ -173,7 +175,6 @@ contract StakingReward is Context, Initializable {
      * @param _amount tokens for withdrawing
      */
     function withdraw(uint256 _amount) public contractWasInitiated {
-       
         address investor = _msgSender();
         UserInfo memory _user = users[investor];
 
@@ -216,15 +217,15 @@ contract StakingReward is Context, Initializable {
     }
 
     function claim() public contractWasInitiated {
-    
         address investor = _msgSender();
-        
+
         updateRewards(investor, 0, 0);
 
-        uint256 rewards = users[investor].assignedReward;
+        uint256 rewards = users[investor].assignedReward /
+            (MULTIPLIER * MULTIPLIER);
         users[investor].assignedReward = 0;
 
-        rewards = rewards / (MULTIPLIER * MULTIPLIER);
+        require(rewards > 0, "Staking: rewards != 0");
 
         if (block.timestamp - startProcess >= YEAR) {
             UserInfo memory _user = users[investor];
@@ -238,8 +239,6 @@ contract StakingReward is Context, Initializable {
             rewards = IERC20(rewardToken).balanceOf(address(this));
         }
 
-        require(rewards > 0, "Staking: rewards != 0");
-
         require(
             IERC20(rewardToken).transfer(investor, rewards),
             "Staking: reward !transfer"
@@ -248,27 +247,39 @@ contract StakingReward is Context, Initializable {
         emit ClaimForUser(investor, rewards);
     }
 
-    
     function calculateReward(address investor, uint256 stamp)
         internal
         view
         returns (uint256 rewards)
     {
         UserInfo memory _user = users[investor];
+        uint256 _tokenRate = tokenRate;
 
         if (lastUpdate != 0) {
-            if (stakedSum != 0) rewards = _user.assignedReward + ((_user.amount * tokenRate * (stamp - lastUpdate)) * MULTIPLIER) / stakedSum;    
-            rewards = rewards + (_user.amount * tokenRate * (globalCoefficient - _user.globalCoefficientMinus));
+            if (stakedSum != 0)
+                rewards =
+                    ((_user.amount * _tokenRate * (stamp - lastUpdate)) *
+                        MULTIPLIER) /
+                    stakedSum;
+            rewards =
+                rewards +
+                _user.assignedReward +
+                _user.amount *
+                _tokenRate *
+                globalCoefficient;
+            rewards =
+                rewards -
+                _user.amount *
+                _tokenRate *
+                _user.globalCoefficientMinus;
         }
     }
-
 
     function updateRewards(
         address _investor,
         uint256 _increaseAmount,
         uint256 _decreaseAmount
     ) private contractWasInitiated {
-        
         uint256 stamp;
         if (block.timestamp - startProcess < YEAR) {
             stamp = block.timestamp;
@@ -277,14 +288,19 @@ contract StakingReward is Context, Initializable {
         }
 
         UserInfo memory _user = users[_investor];
-        
+        uint256 multiplier = MULTIPLIER;
+
         users[_investor].assignedReward = calculateReward(_investor, stamp);
-        if (stakedSum != 0)  users[_investor].globalCoefficientMinus = globalCoefficient + ((stamp - lastUpdate) * MULTIPLIER) / stakedSum;
+        if (stakedSum != 0)
+            users[_investor].globalCoefficientMinus =
+                globalCoefficient +
+                ((stamp - lastUpdate) * multiplier) /
+                stakedSum;
 
         if (_increaseAmount > 0) {
             if (lastUpdate != 0 && stakedSum != 0)
                 globalCoefficient +=
-                    ((stamp - lastUpdate) * MULTIPLIER) /
+                    ((stamp - lastUpdate) * multiplier) /
                     stakedSum;
             stakedSum += _increaseAmount;
             lastUpdate = block.timestamp;
@@ -294,7 +310,7 @@ contract StakingReward is Context, Initializable {
         if (_decreaseAmount > 0) {
             if (lastUpdate != 0 && stakedSum != 0)
                 globalCoefficient +=
-                    ((stamp - lastUpdate) * MULTIPLIER) /
+                    ((stamp - lastUpdate) * multiplier) /
                     stakedSum;
             stakedSum -= _decreaseAmount;
             lastUpdate = stamp;

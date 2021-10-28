@@ -110,20 +110,15 @@ contract('Staking', ([
         await tokenReward.transfer(Staking.address, REWARDS, {from: owner})        
         await Staking.initStaking(tokenStaked.address, tokenReward.address, devWallet, YEAR, { from: owner })
 
-        await expectRevert(
-            Staking.withdraw( FIVE, { from: alice }) ,
-            "Staking: _user.amount > 0"
-        ); 
-
         let timestamp_deposit_1 = (await web3.eth.getBlock((await Staking.deposit(FIVE, { from: alice })).receipt.blockNumber)).timestamp
 
         expect((await Staking.getUserInfo(alice)).amount).to.be.bignumber.equals(FIVE)
         expect((await Staking.getUserInfo(alice)).start).to.be.bignumber.equals(timestamp_deposit_1.toString())
-        //expect((await Staking.getUserInfo(alice)).globalCoefficientMinus).to.be.bignumber.equals(_ZERO)
+        expect((await Staking.getUserInfo(alice)).globalCoefficientMinus).to.be.bignumber.equals(_ZERO)
         expect((await Staking.getUserInfo(alice)).assignedReward).to.be.bignumber.equals(_ZERO)
 
         expect((await Staking.getPoolInfo())._stakedSum).to.be.bignumber.equals(FIVE)
-        //expect((await Staking.getPoolInfo())._globalCoefficient).to.be.bignumber.equals(_ZERO)
+        expect((await Staking.getPoolInfo())._globalCoefficient).to.be.bignumber.equals(_ZERO)
         expect((await Staking.getPoolInfo())._lastUpdate).to.be.bignumber.equals(timestamp_deposit_1.toString())
        
         expect(await tokenStaked.balanceOf(alice)).to.be.bignumber.that.equals(STO.sub(FIVE))
@@ -155,11 +150,21 @@ contract('Staking', ([
 
         expect((await Staking.getUserInfo(alice)).amount).to.be.bignumber.equals(TWO)
         expect((await Staking.getUserInfo(alice)).start).to.be.bignumber.equals(timestamp_deposit_1.toString())
-        //expect((await Staking.getUserInfo(alice)).globalCoefficientMinus).to.be.bignumber.equals(glKoffM)
+        
+        try {
+            expect((await Staking.getUserInfo(alice)).globalCoefficientMinus).to.be.bignumber.equals(glKoffM)
+        } catch {
+            expect(Math.abs((await Staking.getUserInfo(alice)).globalCoefficientMinus.sub(glKoffM)).toString()).to.be.lessThanOrEqual(parseInt(N.div(MULTIPLIER)))
+        }
+    
         expect((await Staking.getUserInfo(alice)).assignedReward).to.be.bignumber.equals((new BN(timestamp_withdraw_1)).sub(new BN(timestamp_deposit_1)).mul(MULTIPLIER).mul(N).mul(FIVE).div(FIVE))
-         
-        //expect((await Staking.getPoolInfo())._globalCoefficient).to.be.bignumber.equals(glKoff)
-       
+        
+        try {
+            expect((await Staking.getPoolInfo())._globalCoefficient).to.be.bignumber.equals(glKoffM)
+        } catch {
+            expect(Math.abs((await Staking.getPoolInfo())._globalCoefficient.sub(glKoffM)).toString()).to.be.lessThanOrEqual(parseInt(N.div(MULTIPLIER)))
+        }
+
         await time.increase(time.duration.days(15))
         
         let timestamp_claim_1 = (await web3.eth.getBlock((await Staking.claim({ from: alice })).receipt.blockNumber)).timestamp 
@@ -169,19 +174,33 @@ contract('Staking', ([
         expect(await tokenStaked.balanceOf(devWallet)).to.be.bignumber.that.equals(percents.div(_TWO))
 
         rewards_alice = N.mul((new BN(timestamp_claim_1)).sub(new BN(timestamp_deposit_1))).div(MULTIPLIER)
-        //console.log(rewards_alice.toString(), ' && ', (await tokenReward.balanceOf(alice)).toString())
-
+        
+        try {
+            expect((await tokenReward.balanceOf(alice))).to.be.bignumber.equals(rewards_alice)
+        } catch {
+            expect(Math.abs((await tokenReward.balanceOf(alice)).sub(rewards_alice)).toString()).to.be.lessThanOrEqual(parseInt(N.div(MULTIPLIER)))
+        }
+    
         expect(await tokenReward.balanceOf(alice)).to.be.bignumber.that.equals(rewards_alice)
         expect(await tokenReward.balanceOf(Staking.address)).to.be.bignumber.that.equals(REWARDS.sub(rewards_alice))
 
-        //expect((await Staking.getPoolInfo())._globalCoefficient).to.be.bignumber.equals(glKoffM)
-        
+        try {
+            expect((await Staking.getPoolInfo())._globalCoefficient).to.be.bignumber.equals(glKoffM)
+        } catch {
+            expect(Math.abs((await Staking.getPoolInfo())._globalCoefficient.sub(glKoffM)).toString()).to.be.lessThanOrEqual(parseInt(N.div(MULTIPLIER)))
+        }
+     
         glKoffM = glKoffM.add(((new BN(timestamp_claim_1)).sub(new BN(timestamp_withdraw_1))).mul(MULTIPLIER).div(TWO))
 
         expect((await Staking.getUserInfo(alice)).amount).to.be.bignumber.equals(TWO)
         expect((await Staking.getUserInfo(alice)).start).to.be.bignumber.equals(timestamp_deposit_1.toString())
-        //expect((await Staking.getUserInfo(alice)).globalCoefficientMinus).to.be.bignumber.equals(glKoffM)
         expect((await Staking.getUserInfo(alice)).assignedReward).to.be.bignumber.equals(_ZERO)
+       
+        try {
+            expect((await Staking.getUserInfo(alice)).globalCoefficientMinus).to.be.bignumber.equals(glKoffM)
+        } catch {
+            expect(Math.abs((await Staking.getUserInfo(alice)).globalCoefficientMinus.sub(glKoffM)).toString()).to.be.lessThanOrEqual(parseInt(N.div(MULTIPLIER)))
+        }
 
         await time.increase(time.duration.days(1))
         
@@ -189,56 +208,70 @@ contract('Staking', ([
          
         expect(await tokenReward.balanceOf(alice)).to.be.bignumber.that.equals(rewards_alice)
         expect(await tokenReward.balanceOf(Staking.address)).to.be.bignumber.that.equals(REWARDS.sub(rewards_alice))
-        //rewards_alice = N.mul((new BN(timestamp_deposit_2)).sub(new BN(timestamp_claim_1))).div(MULTIPLIER)
-        //console.log(rewards_alice.toString(), ' && ', (await Staking.nextReward(alice)).toString())
+        rewards_alice = N.mul((new BN(timestamp_deposit_2)).sub(new BN(timestamp_claim_1))).div(MULTIPLIER)
+        
+        try {
+            expect(await Staking.getReward(alice)).to.be.bignumber.equals(rewards_alice)
+        } catch {
+            expect(Math.abs((await Staking.getReward(alice)).sub(rewards_alice))).to.be.lessThanOrEqual(parseInt(N.div(MULTIPLIER)))
+        }
         
         glKoff = glKoff.add(((new BN(timestamp_deposit_2)).sub(new BN(timestamp_withdraw_1))).mul(MULTIPLIER).div(TWO))
-        //expect((await Staking.getPoolInfo())._globalCoefficient).to.be.bignumber.equals(glKoff) 
         
+        try {
+            expect((await Staking.getPoolInfo())._globalCoefficient).to.be.bignumber.equals(glKoff)
+        } catch {
+            expect(Math.abs((await Staking.getPoolInfo())._globalCoefficient.sub(glKoff)).toString()).to.be.lessThanOrEqual(parseInt(N.div(MULTIPLIER)))
+        }
+
         expect(await tokenStaked.balanceOf(alice)).to.be.bignumber.that.equals((STO.sub(FIVE)).add(withoutFee).sub(TROI))
         expect(await tokenStaked.balanceOf(Staking.address)).to.be.bignumber.that.equals(FIVE)
         
         expect((await Staking.getPoolInfo())._stakedSum).to.be.bignumber.equals(FIVE)
         expect((await Staking.getPoolInfo())._lastUpdate).to.be.bignumber.equals(timestamp_deposit_2.toString())
         
-        //expect((await Staking.getUserInfo(alice)).globalCoefficientMinus).to.be.bignumber.equals(glKoff)
-        
+        try {
+            expect((await Staking.getUserInfo(alice)).globalCoefficientMinus).to.be.bignumber.equals(glKoff)
+        } catch {
+            expect(Math.abs((await Staking.getUserInfo(alice)).globalCoefficientMinus.sub(glKoff)).toString()).to.be.lessThanOrEqual(parseInt(N.div(MULTIPLIER)))
+        }
+
         expect((await Staking.getUserInfo(alice)).amount).to.be.bignumber.equals(FIVE)
-        //expect((await Staking.getUserInfo(alice)).assignedReward).to.be.bignumber.equals(((new BN(timestamp_deposit_2)).sub(new BN(timestamp_claim_1))).mul(N).mul(TWO).mul(MULTIPLIER).div(TWO))
+        let assignedReward = ((new BN(timestamp_deposit_2)).sub(new BN(timestamp_claim_1))).mul(N).mul(TWO).mul(MULTIPLIER).div(TWO)
+        
+        try {
+            expect((await Staking.getUserInfo(alice)).assignedReward).to.be.bignumber.equals(assignedReward)
+        } catch {
+            expect(Math.abs(((await Staking.getUserInfo(alice)).assignedReward.sub(assignedReward)).div(MULTIPLIER))).to.be.lessThanOrEqual(parseInt(N))
+        }
 
         await time.increase(time.duration.days(30*11))
 
         let end = timestamp_deposit_1 + 60*60*24*30*12
-        
-        //console.log((await Staking.nextReward(alice)).toString())
-        //console.log((await tokenReward.balanceOf(Staking.address)).toString())
-        
         let timestamp_withdraw_2 = (await web3.eth.getBlock((await Staking.withdraw(FIVE , { from: alice })).receipt.blockNumber)).timestamp
 
         rewards_alice = rewards_alice.add(N.mul((new BN(end)).sub(new BN(timestamp_deposit_2))).div(MULTIPLIER))
-       // console.log(rewards_alice.toString(), ' && ', (await Staking.nextReward(alice)).toString())
         
-        let timestamp_claim_2 = (await web3.eth.getBlock((await Staking.claim({ from: alice })).receipt.blockNumber)).timestamp 
+        try {
+            expect((await Staking.getReward(alice))).to.be.bignumber.equals(rewards_alice)
+        } catch {
+            expect(Math.abs(((await Staking.getReward(alice)).sub(rewards_alice)))).to.be.lessThanOrEqual(parseInt(N))
+        }
+        
+        await Staking.claim({ from: alice })
 
-        //console.log(((await Staking.getUserInfo(alice)).assignedReward).div(MULTIPLIER).div(MULTIPLIER).toString())
-        //console.log((await tokenReward.balanceOf(Staking.address)).toString())
-        
         percents = (TROI.mul(_THREE.add(_THREE))).div(_STO)
         withoutFee = TROI.sub(percents)
         value = (STO.sub(TROI)).add(withoutFee)
 
         expect((await Staking.getPoolInfo())._stakedSum).to.be.bignumber.equals(_ZERO)
-
         expect(await tokenStaked.balanceOf(alice)).to.be.bignumber.that.equals((STO.sub(percents)))
-       
-        expect(await tokenStaked.balanceOf(Staking.address)).to.be.bignumber.lessThan(new BN('90'))
+        expect(await tokenStaked.balanceOf(Staking.address)).to.be.bignumber.equals(_ZERO)
         expect(await tokenStaked.balanceOf(devWallet)).to.be.bignumber.that.equals(percents.div(_TWO))
-
         expect((await Staking.getUserInfo(alice)).amount).to.be.bignumber.equals(_ZERO)
+        expect(await tokenReward.balanceOf(Staking.address)).to.be.bignumber.that.equals(_ZERO)
+        expect(await tokenReward.balanceOf(alice)).to.be.bignumber.that.equals(REWARDS)
     }) 
-
-
-
     
     it('#2 Deposit 5 tokens from Alice -> Increase time - 30days -> Deposit 10 tokens from Bob -> Increase time - 30days -> Claim', async () => {
         let rewards_alice, rewards_bob, timestamp_deposit_alice, timestamp_deposit_bob, timestamp_claim_alice, timestamp_claim_bob, timestamp_withdraw_alice, timestamp_withdraw_bob, timestamp_claim_alice_1, timestamp_claim_bob_1
@@ -250,11 +283,11 @@ contract('Staking', ([
 
         expect((await Staking.getUserInfo(alice)).amount).to.be.bignumber.equals(FIVE)
         expect((await Staking.getUserInfo(alice)).start).to.be.bignumber.equals(timestamp_deposit_alice.toString())
-       // expect((await Staking.getUserInfo(alice)).globalCoefficientMinus).to.be.bignumber.equals(_ZERO)
+        expect((await Staking.getUserInfo(alice)).globalCoefficientMinus).to.be.bignumber.equals(_ZERO)
         expect((await Staking.getUserInfo(alice)).assignedReward).to.be.bignumber.equals(_ZERO)
 
         expect((await Staking.getPoolInfo())._stakedSum).to.be.bignumber.equals(FIVE)
-       // expect((await Staking.getPoolInfo())._globalCoefficient).to.be.bignumber.equals(_ZERO)
+        expect((await Staking.getPoolInfo())._globalCoefficient).to.be.bignumber.equals(_ZERO)
         expect((await Staking.getPoolInfo())._lastUpdate).to.be.bignumber.equals(timestamp_deposit_alice.toString())
        
         expect(await tokenStaked.balanceOf(alice)).to.be.bignumber.that.equals(STO.sub(FIVE))
@@ -273,13 +306,23 @@ contract('Staking', ([
 
         expect((await Staking.getUserInfo(bob)).amount).to.be.bignumber.equals(TEN)
         expect((await Staking.getUserInfo(bob)).start).to.be.bignumber.equals(timestamp_deposit_bob.toString())
-        //expect((await Staking.getUserInfo(bob)).globalCoefficientMinus).to.be.bignumber.equals(koff)
         expect((await Staking.getUserInfo(bob)).assignedReward).to.be.bignumber.equals(_ZERO)
+        
+        try {
+            expect((await Staking.getUserInfo(bob)).globalCoefficientMinus).to.be.bignumber.equals(koff)
+        } catch {
+            expect(Math.abs((await Staking.getUserInfo(bob)).globalCoefficientMinus.sub(koff)).toString()).to.be.lessThanOrEqual(parseInt(N.div(MULTIPLIER)))
+        }
 
         expect((await Staking.getPoolInfo())._stakedSum).to.be.bignumber.equals(FIVE.add(TEN))
-        //expect((await Staking.getPoolInfo())._globalCoefficient).to.be.bignumber.equals(koff)
         expect((await Staking.getPoolInfo())._lastUpdate).to.be.bignumber.equals(timestamp_deposit_bob.toString())
-       
+        
+        try {
+            expect((await Staking.getPoolInfo())._globalCoefficient).to.be.bignumber.equals(koff)
+        } catch {
+            expect(Math.abs((await Staking.getPoolInfo())._globalCoefficient.sub(koff)).toString()).to.be.lessThanOrEqual(parseInt(N.div(MULTIPLIER)))
+        }
+
         expect(await tokenStaked.balanceOf(alice)).to.be.bignumber.that.equals(STO.sub(FIVE))
         expect(await tokenStaked.balanceOf(bob)).to.be.bignumber.that.equals(STO.sub(TEN))
         expect(await tokenStaked.balanceOf(Staking.address)).to.be.bignumber.that.equals(FIVE.add(TEN))
@@ -290,36 +333,36 @@ contract('Staking', ([
 
         await time.increase(time.duration.days(30))
 
-        timestamp_claim_alice = (await web3.eth.getBlock((await Staking.claim({ from: alice })).receipt.blockNumber)).timestamp 
-        
+        timestamp_claim_alice = (await web3.eth.getBlock((await Staking.claim({ from: alice })).receipt.blockNumber)).timestamp  
         timestamp_claim_bob = (await web3.eth.getBlock((await Staking.claim({ from: bob })).receipt.blockNumber)).timestamp 
 
         rewards_alice = rewards_alice.add(N.mul((new BN(timestamp_claim_alice)).sub(new BN(timestamp_deposit_bob))).mul(FIVE).div(FIVE.add(TEN)).div(MULTIPLIER))
         rewards_bob = (N.mul((new BN(timestamp_claim_bob)).sub(new BN(timestamp_claim_alice))).mul(TEN).div(FIVE.add(TEN)).div(MULTIPLIER)).add(N.mul((new BN(timestamp_claim_alice)).sub(new BN(timestamp_deposit_bob))).mul(TEN).div(FIVE.add(TEN)).div(MULTIPLIER))
 
-        //console.log(rewards_alice.toString(), ' && ', (await tokenReward.balanceOf(alice)).toString())
-        //console.log(rewards_bob.toString(), ' && ', (await tokenReward.balanceOf(bob)).toString())*/
+        try {
+            expect(await tokenReward.balanceOf(alice)).to.be.bignumber.equals(rewards_alice)
+        } catch {
+            expect(Math.abs((await tokenReward.balanceOf(alice)).sub(rewards_alice))).to.be.lessThanOrEqual(parseInt(N.div(MULTIPLIER)))
+        }
+
+        try {
+            expect(await tokenReward.balanceOf(bob)).to.be.bignumber.equals(rewards_bob)
+        } catch {
+            expect(Math.abs((await tokenReward.balanceOf(bob)).sub(rewards_bob))).to.be.lessThanOrEqual(parseInt(N.div(MULTIPLIER)))
+        }
        
         expect(await tokenStaked.balanceOf(alice)).to.be.bignumber.that.equals(STO.sub(FIVE))
         expect(await tokenStaked.balanceOf(bob)).to.be.bignumber.that.equals(STO.sub(TEN))
         expect(await tokenStaked.balanceOf(Staking.address)).to.be.bignumber.that.equals(FIVE.add(TEN))
-
-        //console.log(rewards_alice.toString())
-        //console.log((await tokenReward.balanceOf(alice)).toString())
-      
-      
-        // !!!!!  expect(await tokenReward.balanceOf(alice)).to.be.bignumber.that.equals(rewards_alice)
-        
-        //let rewards_bob = (((new BN(timestamp_claim_bob)).sub(new BN(timestamp_deposit_bob))).mul(N).mul(TEN).div(TEN.add(FIVE)).div(MULTIPLIER))
-        //console.log(rewards_bob.toString())
-        //console.log((await tokenReward.balanceOf(bob)).toString())
-        expect(await tokenReward.balanceOf(bob)).to.be.bignumber.that.equals(rewards_bob)
-        //expect(await tokenReward.balanceOf(Staking.address)).to.be.bignumber.that.equals(REWARDS.sub(rewards_alice).sub(rewards_bob))
+        try {
+            expect(await tokenReward.balanceOf(Staking.address)).to.be.bignumber.that.equals(REWARDS.sub(rewards_alice).sub(rewards_bob))
+        } catch {
+            expect(Math.abs((await tokenReward.balanceOf(Staking.address)).sub(REWARDS.sub(rewards_alice).sub(rewards_bob)))).to.be.lessThanOrEqual(parseInt(N.div(MULTIPLIER)))
+        }  
 
         await time.increase(time.duration.days(30*11))
 
         timestamp_withdraw_alice = (await web3.eth.getBlock((await Staking.withdraw(FIVE, { from: alice })).receipt.blockNumber)).timestamp
-        //console.log((await Staking.getUserInfo(bob)).assignedReward.div(MULTIPLIER).div(MULTIPLIER).toString())
         timestamp_withdraw_bob = (await web3.eth.getBlock((await Staking.withdraw(TEN, { from: bob })).receipt.blockNumber)).timestamp
         
         let end = timestamp_deposit_alice + 30*12*24*60*60
@@ -327,18 +370,25 @@ contract('Staking', ([
         await Staking.claim({ from: alice })
         
         rewards_alice = rewards_alice.add(N.mul((new BN(end)).sub(new BN(timestamp_claim_bob))).mul(FIVE).div(FIVE.add(TEN)).div(MULTIPLIER))
-        //console.log(rewards_alice.toString(), ' && ', (await tokenReward.balanceOf(alice)).toString())
-        //expect(await tokenReward.balanceOf(alice)).to.be.bignumber.that.equals(rewards_alice)
+        
+        try {
+            expect(await tokenReward.balanceOf(alice)).to.be.bignumber.equals(rewards_alice)
+        } catch {
+            expect(Math.abs((await tokenReward.balanceOf(alice)).sub(rewards_alice))).to.be.lessThanOrEqual(parseInt(N.div(MULTIPLIER)))
+        }
 
         rewards_alice = (((new BN(end)).sub(new BN(timestamp_claim_alice))).mul(N).mul(FIVE).div(FIVE.add(TEN)).div(MULTIPLIER))
         rewards_bob = (((new BN(end)).sub(new BN(timestamp_claim_bob))).mul(N).mul(TEN).div(FIVE.add(TEN)).div(MULTIPLIER))
 
-        timestamp_claim_bob_1 = (await web3.eth.getBlock((await Staking.claim({ from: bob })).receipt.blockNumber)).timestamp 
+        timestamp_claim_bob_1 = (await web3.eth.getBlock((await Staking.claim({ from: bob })).receipt.blockNumber)).timestamp;
+        
+        expect(await tokenReward.balanceOf(Staking.address)).to.be.bignumber.that.equals(_ZERO)
+        expect(await tokenReward.balanceOf(bob)).to.be.bignumber.that.equals(REWARDS.sub((await tokenReward.balanceOf(alice))))
     })
 
-    /*it('#3 Deposit 10 tokens from Alice -> Increase time - 30days -> Deposit 10 tokens from Bob -> Increase time - 30days -> WITHDRAW 5 tokens for Alice -> Increase time - 30days -> WITHDRAW 5 tokens for bob -> Increase time - 30days -> CLAIM', async () => {
+    it('#3 Deposit 10 tokens from Alice -> Increase time - 30days -> Deposit 10 tokens from Bob -> Increase time - 30days -> WITHDRAW 5 tokens for Alice -> Increase time - 30days -> WITHDRAW 5 tokens for bob -> Increase time - 30days -> CLAIM', async () => {
 
-        let timestamp_deposit_alice, timestamp_deposit_bob, timestamp_claim_alice, timestamp_claim_bob, timestamp_withdraw_alice, timestamp_withdraw_bob, rewards_alice, rewards_bob
+        let koff, timestamp_deposit_alice, timestamp_deposit_bob, timestamp_claim_alice, timestamp_claim_bob, timestamp_withdraw_alice, timestamp_withdraw_bob, rewards_alice, rewards_bob
 
         await tokenReward.transfer(Staking.address, REWARDS, {from: owner})        
         await Staking.initStaking(tokenStaked.address, tokenReward.address, devWallet, YEAR, { from: owner })
@@ -360,6 +410,52 @@ contract('Staking', ([
         
         await time.increase(time.duration.days(30))
 
+        expect((await Staking.getUserInfo(bob)).amount).to.be.bignumber.equals(TEN)
+        expect((await Staking.getUserInfo(bob)).start).to.be.bignumber.equals(timestamp_deposit_bob.toString())
+        expect((await Staking.getUserInfo(bob)).assignedReward).to.be.bignumber.equals(_ZERO)
+        
+        koff = ((new BN(timestamp_deposit_bob)).sub(new BN(timestamp_deposit_alice))).mul(MULTIPLIER).div(TEN)
+       
+        try {
+            expect((await Staking.getUserInfo(bob)).globalCoefficientMinus).to.be.bignumber.equals(koff)
+        } catch {
+            expect(Math.abs((await Staking.getUserInfo(bob)).globalCoefficientMinus.sub(koff))).to.be.lessThanOrEqual(parseInt(N.div(MULTIPLIER)))
+        }
+        
+        koff = koff.add(((new BN(timestamp_withdraw_alice)).sub(new BN(timestamp_deposit_bob))).mul(MULTIPLIER).div(TEN.add(TEN)))
+       
+        try {
+            expect((await Staking.getPoolInfo())._globalCoefficient).to.be.bignumber.equals(koff)
+        } catch {
+            expect(Math.abs((await Staking.getPoolInfo())._globalCoefficient.sub(koff))).to.be.lessThanOrEqual(parseInt(N.div(MULTIPLIER)))
+        }
+    
+        try {
+            expect((await Staking.getUserInfo(alice)).globalCoefficientMinus).to.be.bignumber.equals(koff)
+        } catch {
+            expect(Math.abs((await Staking.getUserInfo(alice)).globalCoefficientMinus.sub(koff))).to.be.lessThanOrEqual(parseInt(N.div(MULTIPLIER)))
+        }
+
+        expect((await Staking.getUserInfo(alice)).amount).to.be.bignumber.equals(FIVE)
+        expect((await Staking.getUserInfo(alice)).start).to.be.bignumber.equals(timestamp_deposit_alice.toString())
+
+        let assignedReward = ((await Staking.getUserInfo(alice)).globalCoefficientMinus.mul(TEN).mul(N))
+        try {
+            expect((await Staking.getUserInfo(alice)).assignedReward).to.be.bignumber.equals(assignedReward)
+        } catch {
+            expect(Math.abs((await Staking.getUserInfo(alice)).assignedReward.sub(assignedReward))).to.be.lessThanOrEqual(parseInt(N.mul(MULTIPLIER)))
+        }
+        
+        expect((await Staking.getPoolInfo())._stakedSum).to.be.bignumber.equals(FIVE.add(TEN))
+       
+        expect(await tokenStaked.balanceOf(alice)).to.be.bignumber.that.equals(STO.sub(FIVE))
+        expect(await tokenStaked.balanceOf(bob)).to.be.bignumber.that.equals(STO.sub(TEN))
+        expect(await tokenStaked.balanceOf(Staking.address)).to.be.bignumber.that.equals(FIVE.add(TEN))
+
+        expect(await tokenReward.balanceOf(alice)).to.be.bignumber.that.equals(_ZERO)
+        expect(await tokenReward.balanceOf(bob)).to.be.bignumber.that.equals(_ZERO)
+        expect(await tokenReward.balanceOf(Staking.address)).to.be.bignumber.that.equals(REWARDS)
+        
         timestamp_withdraw_bob = (await web3.eth.getBlock((await Staking.withdraw(FIVE, { from: bob })).receipt.blockNumber)).timestamp
 
         rewards_alice = rewards_alice.add(((new BN(timestamp_withdraw_bob)).sub(new BN(timestamp_withdraw_alice))).mul(N).mul(FIVE).div(TEN.add(FIVE)).div(MULTIPLIER))
@@ -367,19 +463,38 @@ contract('Staking', ([
 
         await time.increase(time.duration.days(9*30))
 
-        let end = timestamp_deposit_alice + 60*60*24*30*12 //(await web3.eth.getBlock(await web3.eth.getBlockNumber())).timestamp
+        let end = timestamp_deposit_alice + 60*60*24*30*12 
 
         rewards_alice = rewards_alice.add(((new BN(end)).sub(new BN(timestamp_withdraw_bob))).mul(N).mul(FIVE).div(TEN).div(MULTIPLIER))
         rewards_bob = rewards_bob.add(((new BN(end)).sub(new BN(timestamp_withdraw_bob))).mul(N).mul(FIVE).div(TEN).div(MULTIPLIER))
         
-        console.log((await Staking.nextReward(alice)).toString(), '&&', rewards_alice.toString())
-        console.log((await Staking.nextReward(bob)).toString(), '&&' ,rewards_bob.toString())
-       // console.log((await tokenReward.balanceOf(Staking.address)).toString())
+        try {
+            expect((await Staking.getReward(alice))).to.be.bignumber.equals(rewards_alice)
+        } catch {
+            expect(Math.abs((await Staking.getReward(alice)).sub(rewards_alice))).to.be.lessThanOrEqual(parseInt(N.div(MULTIPLIER)))
+        }
+
+        try {
+            expect((await Staking.getReward(bob))).to.be.bignumber.equals(rewards_bob)
+        } catch {
+            expect(Math.abs((await Staking.getReward(bob)).sub(rewards_bob))).to.be.lessThanOrEqual(parseInt(N.div(MULTIPLIER)))
+        }
+        
+        rewards_alice = await Staking.getReward(alice)
         
         await Staking.claim({ from: alice })
         await Staking.claim({ from: bob })
+        
+        expect(await tokenReward.balanceOf(Staking.address)).to.be.bignumber.that.equals(_ZERO)
+        expect(await tokenReward.balanceOf(alice)).to.be.bignumber.that.equals(rewards_alice)
+        expect(await tokenReward.balanceOf(bob)).to.be.bignumber.that.equals(REWARDS.sub(rewards_alice))
 
-        //console.log((await tokenReward.balanceOf(Staking.address)).toString())
+        expect(await tokenStaked.balanceOf(alice)).to.be.bignumber.that.equals(STO)
+        expect(await tokenStaked.balanceOf(bob)).to.be.bignumber.that.equals(STO) 
+        expect(await tokenStaked.balanceOf(Staking.address)).to.be.bignumber.equals(_ZERO)
+
+        expect((await Staking.getUserInfo(alice)).amount).to.be.bignumber.equals(_ZERO)
+        expect((await Staking.getUserInfo(bob)).amount).to.be.bignumber.equals(_ZERO)
     }) 
    
     it('#4 deposit for alice ang eva 10 tokens -> Increase time - 30days -> deposit for bob 5 tokens and withdraw for eva and alice 5 tokens ->  Increase time - 30days -> check claiming', async () => {
@@ -421,10 +536,72 @@ contract('Staking', ([
         rewards_eva = rewards_eva.add(((new BN(end)).sub(new BN(timestamp_withdraw_eva))).mul(N).mul(FIVE).div(TEN.add(FIVE)).div(MULTIPLIER))
         rewards_bob = rewards_bob.add(((new BN(end)).sub(new BN(timestamp_withdraw_eva))).mul(N).mul(FIVE).div(TEN.add(FIVE)).div(MULTIPLIER))
 
-        console.log((await Staking.nextReward(alice)).toString(),' && ', rewards_alice.toString())
-        console.log((await Staking.nextReward(bob)).toString(),' && ', rewards_bob.toString())
-        console.log((await Staking.nextReward(eva)).toString(),' && ', rewards_eva.toString())
-    })
-    */
+        try {
+            expect((await Staking.getReward(alice))).to.be.bignumber.equals(rewards_alice)
+        } catch {
+            expect(Math.abs((await Staking.getReward(alice)).sub(rewards_alice))).to.be.lessThanOrEqual(parseInt(N.div(MULTIPLIER)))
+        }
+        
+        try {
+            expect((await Staking.getReward(bob))).to.be.bignumber.equals(rewards_bob)
+        } catch {
+            expect(Math.abs((await Staking.getReward(bob)).sub(rewards_bob))).to.be.lessThanOrEqual(parseInt(N.div(MULTIPLIER)))
+        }
 
+        try {
+            expect((await Staking.getReward(eva))).to.be.bignumber.equals(rewards_eva)
+        } catch {
+            expect(Math.abs((await Staking.getReward(eva)).sub(rewards_eva))).to.be.lessThanOrEqual(parseInt(N.div(MULTIPLIER)))
+        }
+
+        await Staking.withdraw(FIVE, { from: alice })
+        await Staking.withdraw(FIVE, { from: bob })
+        await Staking.withdraw(FIVE, { from: eva })
+
+        await Staking.claim({ from: alice })
+        await Staking.claim({ from: bob })
+        await Staking.claim({ from: eva })
+    })
+
+    it('#5 check requires', async () => {
+
+        await tokenReward.transfer(Staking.address, REWARDS, {from: owner})        
+        await Staking.initStaking(tokenStaked.address, tokenReward.address, devWallet, YEAR, { from: owner })
+        
+        await expectRevert(
+            Staking.deposit( _ZERO, { from: alice }) ,
+            "Staking: amount == 0"
+        ); 
+
+        await expectRevert(
+            Staking.withdraw( FIVE, { from: alice }) ,
+            "Staking: _user.amount > 0"
+        ); 
+
+        await Staking.deposit( FIVE, { from: alice })
+
+        await expectRevert(
+            Staking.withdraw( _ZERO, { from: alice }) ,
+            "Staking: amount > 0"
+        ); 
+
+        await expectRevert(
+            Staking.withdraw( TEN, { from: alice }) ,
+            "Staking: _user.amount >= amount"
+        ); 
+
+        await time.increase(time.duration.days(12*30))
+
+        await expectRevert(
+            Staking.deposit( FIVE, { from: alice }) ,
+            "Staking: out of time"
+        ); 
+
+        await Staking.claim({ from: alice })
+
+        await expectRevert(
+            Staking.claim({ from: alice }) ,
+            "Staking: rewards != 0"
+        ); 
+    })
 })
