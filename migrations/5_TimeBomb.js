@@ -10,7 +10,7 @@ const {
     VALID_AMOUNT
 } = process.env;
 
-const Lottery = artifacts.require("Lottery");
+const TimeBomb = artifacts.require("TimeBomb");
 
 const debug = "true";
 
@@ -26,8 +26,8 @@ module.exports = async function (deployer, network) {
         return;
 
     await deployer.deploy(
-        Lottery, VRF_COORDINATOR, LINK_ADDRESS, KEY_HASH, FEE, VALID_AMOUNT
+        TimeBomb, VRF_COORDINATOR, LINK_ADDRESS, KEY_HASH, FEE, VALID_AMOUNT
     );
-    let LotteryInst = await Lottery.deployed();
-    console.log("Lottery =", LotteryInst.address);
+    let TimeBombInst = await TimeBomb.deployed();
+    console.log("TimeBomb =", TimeBombInst.address);
 };

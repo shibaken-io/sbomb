@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.9;
 
-import "./interfaces/ILottery.sol";
+import "./interfaces/ITimeBomb.sol";
 import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@chainlink/contracts/src/v0.8/VRFConsumerBase.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
-contract Lottery is ILottery, AccessControl, VRFConsumerBase, ReentrancyGuard {
+contract TimeBomb is ITimeBomb, AccessControl, VRFConsumerBase, ReentrancyGuard {
 
     bytes32 public constant REGISTER_ROLE = keccak256("REGISTER_ROLE");
 
