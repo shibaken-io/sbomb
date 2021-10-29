@@ -3,9 +3,10 @@ pragma solidity ^0.8.7;
 
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/Context.sol";
 
-contract StakingReward is Context, Initializable {
+contract StakingReward is Context, Ownable, Initializable {
     address public stakedToken;
     address public rewardToken;
     address public devWallet;
@@ -44,6 +45,8 @@ contract StakingReward is Context, Initializable {
     event ClaimForUser(address investor, uint256 amountRewarded);
 
     event WithdrawForUser(address investor, uint256 amountStaked);
+
+    event OwnerGotTokens(address to, uint256 amount);
 
     modifier contractWasInitiated() {
         require(tokenRate > 0, "Staking: not init");
@@ -109,6 +112,28 @@ contract StakingReward is Context, Initializable {
         updateVars(investor, int256(_amount));
     
         emit DepositTokenForUser(investor, _amount, users[investor].start);
+    }
+
+    /**
+     * @param _to user for transfering
+     */
+    function getTokens( address _to ) external onlyOwner {
+       
+        uint256 balance = IERC20(stakedToken).balanceOf(address(this));
+        
+        require(balance > stakedSum, 'Staking:balance <= stakedSum');
+        
+        uint256 amount = balance - stakedSum;
+
+        if (amount > 0) {
+            require(
+                IERC20(stakedToken).transfer(_to, amount),
+                "Staking: !transfer"
+            );
+        }
+
+        event OwnerGotTokens(_to, amount);
+
     }
 
 

@@ -68,262 +68,6 @@ contract('Staking', ([
 
     })
 
-    it('JUST CHEKING REMAINING REWARDS #1', async () => {
-        await tokenReward.transfer(Staking.address, REWARDS, {from: owner})         
-        await Staking.initStaking(tokenStaked.address, tokenReward.address, devWallet, YEAR, { from: owner })
-        await Staking.deposit(FIVE, { from: alice })
-        await time.increase(time.duration.days(15))
-        await Staking.withdraw(TROI, { from: alice })
-        await time.increase(time.duration.days(15))
-        await Staking.claim({ from: alice })
-        await time.increase(time.duration.days(1))
-        await Staking.deposit(TROI, { from: alice })
-        await time.increase(time.duration.days(15))
-        await Staking.withdraw(TROI, { from: alice })
-        await time.increase(time.duration.days(15))
-        await Staking.claim({ from: alice })
-        await time.increase(time.duration.days(1))
-        await Staking.deposit(TROI, { from: alice })
-        await time.increase(time.duration.days(15))
-        await Staking.claim({ from: alice })
-        await time.increase(time.duration.days(1))
-        await Staking.deposit(TROI, { from: alice })
-        await time.increase(time.duration.days(30*11))
-        await Staking.withdraw(FIVE , { from: alice })
-        await Staking.claim({ from: alice })
-        value = await tokenReward.balanceOf(Staking.address) 
-        console.log('REWARDS:', REWARDS.toString(),  ',   remaining reward: ', (value).toString(), ' , in percents:', value.toString()/(REWARDS.toString()))
-    }) 
-    
-    it('JUST CHEKING REMAINING REWARDS #2', async () => {
-        await tokenReward.transfer(Staking.address, REWARDS, {from: owner})           
-        await Staking.initStaking(tokenStaked.address, tokenReward.address, devWallet, YEAR, { from: owner })
-        await Staking.deposit(FIVE, { from: alice })
-        await time.increase(time.duration.days(30))
-        await Staking.deposit(TEN, { from: bob })
-        await time.increase(time.duration.days(30))
-        await Staking.claim({ from: alice })
-        await Staking.claim({ from: bob })
-        await Staking.deposit(FIVE, { from: alice })
-        await time.increase(time.duration.days(30))
-        await Staking.deposit(TEN, { from: bob })
-        await time.increase(time.duration.days(30))
-        await Staking.claim({ from: alice })
-        await Staking.claim({ from: bob })
-        await Staking.deposit(FIVE, { from: alice })
-        await time.increase(time.duration.days(30))
-        await Staking.deposit(TEN, { from: bob })
-        await time.increase(time.duration.days(30))
-        await Staking.claim({ from: alice })
-        await Staking.claim({ from: bob })
-        await time.increase(time.duration.days(30*11))
-        await Staking.withdraw(FIVE, { from: alice })
-        await Staking.withdraw(TEN, { from: bob })      
-        await Staking.claim({ from: alice })
-        await Staking.claim({ from: bob })
-        value = await tokenReward.balanceOf(Staking.address) 
-        console.log('REWARDS:', REWARDS.toString(),  ',   remaining reward: ', (value).toString(), ' , in percents:', value.toString()/(REWARDS.toString()) )
-    })
-
-    it('JUST CHEKING REMAINING REWARDS #3', async () => {
-
-        await tokenReward.transfer(Staking.address, REWARDS, {from: owner})        
-        await Staking.initStaking(tokenStaked.address, tokenReward.address, devWallet, YEAR, { from: owner })
-        await Staking.deposit(TEN, { from: alice })
-        await time.increase(time.duration.days(30))
-        await Staking.deposit(TEN, { from: bob })
-        await time.increase(time.duration.days(30))
-        await Staking.withdraw(FIVE, { from: alice })
-        await time.increase(time.duration.days(30))
-        await Staking.withdraw(FIVE, { from: bob })
-        await Staking.deposit(TEN, { from: alice })
-        await time.increase(time.duration.days(30))
-        await Staking.deposit(TEN, { from: bob })
-        await time.increase(time.duration.days(30))
-        await Staking.withdraw(FIVE, { from: alice })
-        await time.increase(time.duration.days(30))
-        await Staking.withdraw(FIVE, { from: bob })
-        await Staking.deposit(TEN, { from: alice })
-        await time.increase(time.duration.days(30))
-        await Staking.deposit(TEN, { from: bob })
-        await time.increase(time.duration.days(30))
-        await Staking.withdraw(FIVE, { from: alice })
-        await time.increase(time.duration.days(30))
-        await Staking.withdraw(FIVE, { from: bob })
-        await Staking.deposit(TEN, { from: alice })
-        await time.increase(time.duration.days(30))
-        await Staking.deposit(TEN, { from: bob })
-        await time.increase(time.duration.days(30))
-        await Staking.withdraw(FIVE, { from: alice })
-        await time.increase(time.duration.days(30))
-        await Staking.withdraw(FIVE, { from: bob })
-        await time.increase(time.duration.days(9*30))
-        await Staking.claim({ from: alice })
-        await Staking.claim({ from: bob })
-        await Staking.withdraw(FIVE, { from: alice })
-        await Staking.withdraw(FIVE, { from: bob })
-        value = await tokenReward.balanceOf(Staking.address) 
-        console.log('REWARDS:', REWARDS.toString(),  ',   remaining reward: ', (value).toString(), ' , in percents:', value.toString()/(REWARDS.toString()) )
-    }) 
-   
-    it('JUST CHEKING REMAINING REWARDS #4', async () => {
-        await tokenReward.transfer(Staking.address, REWARDS, {from: owner})        
-        await Staking.initStaking(tokenStaked.address, tokenReward.address, devWallet, YEAR, { from: owner })
-        await Staking.deposit(TEN, { from: alice })
-        await Staking.deposit(TEN, { from: eva })
-        await time.increase(time.duration.days(30))
-        await Staking.deposit(FIVE, { from: bob })
-        await Staking.withdraw(FIVE, { from: alice })
-        await Staking.withdraw(FIVE, { from: eva })
-        await Staking.deposit(TEN, { from: alice })
-        await Staking.deposit(TEN, { from: eva })
-        await time.increase(time.duration.days(30))
-        await Staking.deposit(FIVE, { from: bob })
-        await Staking.withdraw(FIVE, { from: alice })
-        await Staking.claim({ from: alice })
-        await Staking.claim({ from: bob })
-        await Staking.claim({ from: eva })
-        await Staking.withdraw(FIVE, { from: eva })
-        await Staking.deposit(TEN, { from: alice })
-        await Staking.deposit(TEN, { from: eva })
-        await time.increase(time.duration.days(30))
-        await Staking.deposit(FIVE, { from: bob })
-        await Staking.withdraw(FIVE, { from: alice })
-        await Staking.claim({ from: alice })
-        await Staking.claim({ from: bob })
-        await Staking.claim({ from: eva })
-        await Staking.withdraw(FIVE, { from: eva })
-        await Staking.deposit(TEN, { from: alice })
-        await Staking.deposit(TEN, { from: eva })
-        await time.increase(time.duration.days(30))
-        await Staking.deposit(FIVE, { from: bob })
-        await Staking.withdraw(FIVE, { from: alice })
-        await Staking.withdraw(FIVE, { from: eva }) 
-        await Staking.deposit(TEN, { from: alice })
-        await Staking.deposit(TEN, { from: eva })
-        await time.increase(time.duration.days(30))
-        await Staking.deposit(FIVE, { from: bob })
-        await Staking.withdraw(FIVE, { from: alice })
-        await Staking.claim({ from: alice })
-        await Staking.claim({ from: bob })
-        await Staking.claim({ from: eva })
-        await Staking.withdraw(FIVE, { from: eva }) 
-        await Staking.deposit(TEN, { from: alice })
-        await Staking.deposit(TEN, { from: eva })
-        await time.increase(time.duration.days(30))
-        await Staking.deposit(FIVE, { from: bob })
-        await Staking.withdraw(FIVE, { from: alice })
-        await Staking.withdraw(FIVE, { from: eva }) 
-        await Staking.deposit(TEN, { from: alice })
-        await Staking.deposit(TEN, { from: eva })
-        await time.increase(time.duration.days(30))
-        await Staking.deposit(FIVE, { from: bob })
-        await Staking.withdraw(FIVE, { from: alice })
-        await Staking.withdraw(FIVE, { from: eva })
-        await time.increase(time.duration.days(30))
-        await time.increase(time.duration.days(10*30))
-        await Staking.withdraw(FIVE, { from: alice })
-        await Staking.withdraw(FIVE, { from: bob })
-        await Staking.withdraw(FIVE, { from: eva })
-        await Staking.claim({ from: alice })
-        await Staking.claim({ from: bob })
-        await Staking.claim({ from: eva })
-        value = await tokenReward.balanceOf(Staking.address) 
-        console.log('REWARDS:', REWARDS.toString(),  ',   remaining reward: ', (value).toString(), ' , in percents:', value.toString()/(REWARDS.toString()) )
-    })
-
-    it('JUST CHEKING REMAINING REWARDS #5', async () => {
-        await tokenReward.transfer(Staking.address, REWARDS, {from: owner})        
-        await Staking.initStaking(tokenStaked.address, tokenReward.address, devWallet, YEAR, { from: owner })
-        await Staking.deposit(TEN.add(TROI), { from: alice })
-        await time.increase(time.duration.days(10))
-        await Staking.deposit(TROI, { from: bob })
-        await time.increase(time.duration.days(10))
-        await Staking.withdraw(FIVE, { from: alice })
-        await time.increase(time.duration.days(10))
-        await Staking.claim({ from: alice })
-        await Staking.deposit(TROI, { from: bob })
-        await Staking.claim({ from: bob})
-        await Staking.withdraw(FIVE, { from: alice })
-        await Staking.deposit(TEN.add(TROI), { from: alice })
-        await time.increase(time.duration.days(10))
-        await Staking.deposit(TROI, { from: bob })
-        await time.increase(time.duration.days(10))
-        await Staking.withdraw(FIVE, { from: alice })
-        await time.increase(time.duration.days(10))
-        await Staking.claim({ from: alice })
-        await Staking.deposit(TROI, { from: bob })
-        await Staking.claim({ from: bob})
-        await Staking.withdraw(FIVE, { from: alice })
-        await Staking.deposit(TROI, { from: bob })
-        await time.increase(time.duration.days(30*2))
-        await Staking.deposit(TROI, { from: alice })
-        await Staking.deposit(TEN.add(TROI), { from: alice })
-        await time.increase(time.duration.days(10))
-        await time.increase(time.duration.days(10))
-        await Staking.claim({ from: alice })
-        await Staking.deposit(TROI, { from: bob })
-        await Staking.claim({ from: bob})
-        await Staking.withdraw(FIVE, { from: alice })
-        await Staking.deposit(TROI, { from: bob })
-        await time.increase(time.duration.days(30*2))
-        await Staking.deposit(TROI, { from: alice })
-        await Staking.deposit(TEN.add(TROI), { from: alice })
-        await time.increase(time.duration.days(10))
-        await Staking.claim({ from: alice })
-        await Staking.deposit(TROI, { from: bob })
-        await Staking.claim({ from: bob})
-        await Staking.deposit(TROI, { from: bob })
-        await Staking.withdraw(FIVE, { from: alice })
-        await Staking.deposit(TROI, { from: bob })
-        await time.increase(time.duration.days(10))
-        await Staking.withdraw(FIVE, { from: alice })
-        await time.increase(time.duration.days(10))
-        await Staking.claim({ from: alice })
-        await Staking.deposit(TROI, { from: bob })
-        await Staking.claim({ from: bob})
-        await Staking.deposit(TROI, { from: bob })
-        await time.increase(time.duration.days(30))
-        await Staking.withdraw(FIVE, { from: alice })
-        await Staking.deposit(TEN.add(TEN), { from: eva })
-        await Staking.withdraw(FIVE, { from: eva })
-        await Staking.deposit(TEN, { from: alice })
-        await Staking.deposit(TEN, { from: eva })
-        await time.increase(time.duration.days(5))
-        await Staking.deposit(FIVE, { from: bob })
-        await Staking.withdraw(FIVE, { from: alice })
-        await Staking.claim({ from: alice })
-        await Staking.claim({ from: bob })
-        await Staking.claim({ from: eva })
-        await Staking.withdraw(FIVE, { from: eva })
-        await Staking.deposit(TEN, { from: alice })
-        await Staking.deposit(TEN, { from: eva })
-        await time.increase(time.duration.days(3))
-        await Staking.deposit(FIVE, { from: bob })
-        await Staking.withdraw(FIVE, { from: alice })
-        await Staking.claim({ from: alice })
-        await Staking.claim({ from: bob })
-        await Staking.claim({ from: eva })
-        await Staking.withdraw(FIVE, { from: eva })
-        await Staking.deposit(TEN, { from: alice })
-        await Staking.deposit(TEN, { from: eva })
-        await time.increase(time.duration.days(12))
-        await Staking.deposit(FIVE, { from: bob })
-        await Staking.withdraw(FIVE, { from: alice })
-        await Staking.withdraw(FIVE, { from: eva }) 
-        await Staking.deposit(TEN, { from: alice })
-        await Staking.deposit(TEN, { from: eva })
-        await Staking.withdraw(FIVE, { from: alice })
-        await time.increase(time.duration.days(12*30))
-        await Staking.claim({ from: alice })
-        await Staking.claim({ from: bob })
-        await Staking.claim({ from: eva })
-        value = await tokenReward.balanceOf(Staking.address) 
-        console.log('REWARDS:', REWARDS.toString(),  ',   remaining reward: ', (value).toString(), ' , in percents:', value.toString()/(REWARDS.toString()) )
-    })
-
-   
-    
     it('#0 check exeptions before initiating Staking and conditions after that', async () => {
         
         await expectRevert(
@@ -365,6 +109,7 @@ contract('Staking', ([
 
     })
    
+    
     it('#1 Deposit 5 tokens from alice -> After 0.5 months withdraw 3 tokens -> After 0.5 claim and deposit 3 tokens -> Increase time to the end of year, withdraw all tokens and claim', async () => {
         let glKoffM, rewards_alice
 
@@ -417,12 +162,13 @@ contract('Staking', ([
         } catch {
             expect(Math.abs((await Staking.getUserInfo(alice)).globalCoefficientMinus.sub(glKoffM))).to.be.lessThanOrEqual(1)
         }
-    
-       /* try {
-        //    expect((await Staking.getUserInfo(alice)).assignedReward).to.be.bignumber.equals((new BN(timestamp_withdraw_1)).sub(new BN(timestamp_deposit_1)).mul(MULTIPLIER).mul(N).mul(FIVE).div(FIVE))
+        
+        //console.log((await Staking.getUserInfo(alice)).assignedReward.toString(), (new BN(timestamp_withdraw_1)).sub(new BN(timestamp_deposit_1)).mul(MULTIPLIER).mul(N).toString(), Math.abs(((await Staking.getUserInfo(alice)).assignedReward).sub((new BN(timestamp_withdraw_1)).sub(new BN(timestamp_deposit_1)).mul(MULTIPLIER).mul(N))) )
+        try {
+            expect((await Staking.getUserInfo(alice)).assignedReward).to.be.bignumber.equals((new BN(timestamp_withdraw_1)).sub(new BN(timestamp_deposit_1)).mul(MULTIPLIER).mul(N))
         } catch {
-        //    expect(Math.abs((await Staking.getUserInfo(alice)).assignedReward.sub((new BN(timestamp_withdraw_1)).sub(new BN(timestamp_deposit_1)).mul(MULTIPLIER).mul(N).mul(FIVE).div(FIVE))).toString()).to.be.lessThanOrEqual(parseInt(N.div(MULTIPLIER)))
-        }*/
+            expect(Math.abs(((await Staking.getUserInfo(alice)).assignedReward).sub((new BN(timestamp_withdraw_1)).sub(new BN(timestamp_deposit_1)).mul(MULTIPLIER).mul(N))) ).to.be.lessThanOrEqual(1)
+        }
 
         try {
             expect((await Staking.getPoolInfo())._globalCoefficient).to.be.bignumber.equals(glKoffM)
@@ -465,8 +211,6 @@ contract('Staking', ([
             expect(Math.abs((await Staking.getPoolInfo())._globalCoefficient.sub(glKoffM)).toString()).to.be.lessThanOrEqual(1)
         }
      
-        //glKoffM = glKoffM.add(((new BN(timestamp_claim_1)).sub(new BN(timestamp_withdraw_1))).mul(MULTIPLIER).div(TWO))
-
         expect((await Staking.getUserInfo(alice)).amount).to.be.bignumber.equals(TWO)
         expect((await Staking.getUserInfo(alice)).start).to.be.bignumber.equals(timestamp_deposit_1.toString())
         
@@ -555,8 +299,6 @@ contract('Staking', ([
         expect((await Staking.getUserInfo(alice)).amount).to.be.bignumber.equals(_ZERO)
         
         console.log('remaining reward: ', (await tokenReward.balanceOf(Staking.address)).toString())
-        //expect(await tokenReward.balanceOf(Staking.address)).to.be.bignumber.that.equals(_ZERO)
-        //expect(await tokenReward.balanceOf(alice)).to.be.bignumber.that.equals(REWARDS)
     }) 
     
     
@@ -662,17 +404,13 @@ contract('Staking', ([
         try {
             expect(await tokenReward.balanceOf(alice)).to.be.bignumber.equals(rewards_alice)
         } catch {
-            expect(Math.abs((await tokenReward.balanceOf(alice)).sub(rewards_alice))).to.be.lessThanOrEqual(3)
+            expect(Math.abs((await tokenReward.balanceOf(alice)).sub(rewards_alice))).to.be.lessThanOrEqual(4)
         }
 
         rewards_alice = (((new BN(end)).sub(new BN(timestamp_claim_alice))).mul(N).mul(FIVE).div(FIVE.add(TEN)).div(MULTIPLIER))
         rewards_bob = (((new BN(end)).sub(new BN(timestamp_claim_bob))).mul(N).mul(TEN).div(FIVE.add(TEN)).div(MULTIPLIER))
-
-        //timestamp_claim_bob_1 = (await web3.eth.getBlock((await Staking.claim({ from: bob })).receipt.blockNumber)).timestamp;
         
         console.log('remaining reward: ', (await tokenReward.balanceOf(Staking.address)).toString())
-        //expect(await tokenReward.balanceOf(Staking.address)).to.be.bignumber.that.equals(_ZERO)
-        //expect(await tokenReward.balanceOf(bob)).to.be.bignumber.that.equals(REWARDS.sub((await tokenReward.balanceOf(alice))))
     })
     
     
@@ -728,15 +466,6 @@ contract('Staking', ([
 
         expect((await Staking.getUserInfo(alice)).amount).to.be.bignumber.equals(FIVE)
         expect((await Staking.getUserInfo(alice)).start).to.be.bignumber.equals(timestamp_deposit_alice.toString())
-
-        let assignedReward = ((await Staking.getUserInfo(alice)).globalCoefficientMinus.mul(TEN).mul(N))
-     
-        /*   try {
-            expect((await Staking.getUserInfo(alice)).assignedReward).to.be.bignumber.equals(assignedReward)
-        } catch {
-            expect(Math.abs((await Staking.getUserInfo(alice)).assignedReward.sub(assignedReward))).to.be.lessThanOrEqual(parseInt(N.mul(MULTIPLIER)))
-        }*/
-        
         expect((await Staking.getPoolInfo())._stakedSum).to.be.bignumber.equals(FIVE.add(TEN))
        
         expect(await tokenStaked.balanceOf(alice)).to.be.bignumber.that.equals(STO.sub(FIVE))
@@ -758,28 +487,11 @@ contract('Staking', ([
 
         rewards_alice = rewards_alice.add(((new BN(end)).sub(new BN(timestamp_withdraw_bob))).mul(N).mul(FIVE).div(TEN).div(MULTIPLIER))
         rewards_bob = rewards_bob.add(((new BN(end)).sub(new BN(timestamp_withdraw_bob))).mul(N).mul(FIVE).div(TEN).div(MULTIPLIER))
-        
-        /*try {
-            expect((await Staking.getReward(alice))).to.be.bignumber.equals(rewards_alice)
-        } catch {
-            expect(Math.abs((await Staking.getReward(alice)).sub(rewards_alice))).to.be.lessThanOrEqual(parseInt(N.mul(_TWO).div(MULTIPLIER)))
-        }
-
-        try {
-            expect((await Staking.getReward(bob))).to.be.bignumber.equals(rewards_bob)
-        } catch {
-            expect(Math.abs((await Staking.getReward(bob)).sub(rewards_bob))).to.be.lessThanOrEqual(parseInt(N.div(MULTIPLIER)))
-        }*/
-        
         rewards_alice = await Staking.getNextReward(alice)
         
         await Staking.claim({ from: alice })
         await Staking.claim({ from: bob })
-        
-        //expect(await tokenReward.balanceOf(Staking.address)).to.be.bignumber.that.equals(_ZERO)
-        //expect(await tokenReward.balanceOf(alice)).to.be.bignumber.that.equals(rewards_alice)
-        //expect(await tokenReward.balanceOf(bob)).to.be.bignumber.that.equals(REWARDS.sub(rewards_alice))
-
+    
         await Staking.withdraw(FIVE, { from: alice })
         await Staking.withdraw(FIVE, { from: bob })
 
@@ -795,6 +507,8 @@ contract('Staking', ([
    
     it('#4 deposit for alice ang eva 10 tokens -> Increase time - 30days -> deposit for bob 5 tokens and withdraw for eva and alice 5 tokens ->  Increase time - 30days -> check claiming', async () => {
         let timestamp_deposit_alice, timestamp_deposit_bob, timestamp_deposit_eva, timestamp_claim_alice, timestamp_claim_bob, timestamp_claim_eva, timestamp_withdraw_alice, timestamp_withdraw_bob, timestamp_withdraw_eva, rewards_alice, rewards_bob, rewards_eva
+
+        await tokenStaked.transfer(Staking.address, TEN, { from: owner })
 
         await tokenReward.transfer(Staking.address, REWARDS, {from: owner})        
         await Staking.initStaking(tokenStaked.address, tokenReward.address, devWallet, YEAR, { from: owner })
@@ -859,6 +573,8 @@ contract('Staking', ([
         await Staking.claim({ from: alice })
         await Staking.claim({ from: bob })
         await Staking.claim({ from: eva })
+
+        await Staking.getTokens( owner, {from: owner} )
 
         console.log('remaining reward: ', (await tokenReward.balanceOf(Staking.address)).toString() )
     })
