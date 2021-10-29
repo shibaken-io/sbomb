@@ -6,6 +6,7 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "./interfaces/IUniswapV2Router.sol";
 import "./interfaces/IUniswapV2Factory.sol";
 import "./interfaces/IUniswapV2Pair.sol";
+import "./interfaces/ITimeBomb.sol";
 import "./pancake-swap/libraries/TransferHelper.sol";
 
 /**
@@ -13,36 +14,36 @@ import "./pancake-swap/libraries/TransferHelper.sol";
  *
  * Deflationary token mechanics:
  *
- * When buy/sell on Sushiswap or Pancakeswap:
+ * When buy/sell on Uniswap or Pancakeswap:
  *
  * Buy tax: 6%, =
- * 5% Lottery (see below). Need to be converted to ETH or BNB and sent to the lottery contract.
- * 1% SHIBAK buy and burn
+ * 5% TimeBomb (see below). Need to be converted to ETH or BNB and sent to the TimeBomb contract.
+ * 1% SHIBAKEN buy and burn
  *
  * Sell tax: 20%, =
- * 10% SHIBAK buy and burn
+ * 10% SHIBAKEN buy and burn
  * 5% to team wallet
- * 5% to sBOMB liquidity pool
+ * 5% to sBOMB-ETH liquidity pool
  */
 contract sBombToken is ERC20, Ownable {
-    IUniswapV2Router public dexRouter;
-    address public immutable SHIBAKEN;
-    address public teamWallet;
-    address public lotteryContract;
-
     //buy/sell taxes for deflationary token
     uint256 public constant LOTTERY_BUY_TAX = 5;
     uint256 public constant SHIBAK_BUY_TAX = 1;
     uint256 public constant SHIBAK_SELL_TAX = 10;
     uint256 public constant TEAM_SELL_TAX = 5;
     uint256 public constant LIQ_SELL_TAX = 5;
+    address public immutable SHIBAKEN;
+
+    address public teamWallet;
+    address public timeBombContract;
+    IUniswapV2Router public dexRouter;
 
     address private constant DEAD_ADDRESS =
         address(0x000000000000000000000000000000000000dEaD);
 
     bool private inSwap;
 
-    event BuyTaxTaken(uint256 toLottery, uint256 toBurn, uint256 total);
+    event BuyTaxTaken(uint256 toTimeBomb, uint256 toBurn, uint256 total);
     event SellTaxTaken(
         uint256 toBurn,
         uint256 toTeam,
@@ -69,11 +70,11 @@ contract sBombToken is ERC20, Ownable {
     receive() external payable {}
 
     /** @dev Owner function for setting lottery contarct address
-     * @param _lottery lottery contract address
+     * @param _timeBomb lottery contract address
      */
-    function setLotteryContarct(address _lottery) external onlyOwner {
-        require(_lottery != address(0));
-        lotteryContract = _lottery;
+    function setTimeBombContarct(address _timeBomb) external onlyOwner {
+        require(_timeBomb != address(0));
+        timeBombContract = _timeBomb;
     }
 
     /** @dev Owner function for setting team wallet address
@@ -105,9 +106,16 @@ contract sBombToken is ERC20, Ownable {
         address to
     ) external payable lockTheSwap {
         require(msg.value > 0 && tokenAmount > 0, "ZERO");
-        TransferHelper.safeTransferFrom(address(this), _msgSender(), address(this), tokenAmount);
+        TransferHelper.safeTransferFrom(
+            address(this),
+            _msgSender(),
+            address(this),
+            tokenAmount
+        );
         _approve(address(this), address(dexRouter), tokenAmount);
-        (uint256 token, uint256 eth, ) = dexRouter.addLiquidityETH{value: msg.value}(
+        (uint256 token, uint256 eth, ) = dexRouter.addLiquidityETH{
+            value: msg.value
+        }(
             address(this),
             tokenAmount,
             amountTokenMin,
@@ -115,10 +123,13 @@ contract sBombToken is ERC20, Ownable {
             to,
             block.timestamp
         );
-        if(tokenAmount > token)
-            TransferHelper.safeTransfer(address(this), _msgSender(), tokenAmount - token);
-        if(msg.value > eth)
-            payable(_msgSender()).transfer(msg.value - eth);
+        if (tokenAmount > token)
+            TransferHelper.safeTransfer(
+                address(this),
+                _msgSender(),
+                tokenAmount - token
+            );
+        if (msg.value > eth) payable(_msgSender()).transfer(msg.value - eth);
     }
 
     /** @dev Public payable function for adding liquidity in SBOMB-<TOKEN> pair without 20% fee
@@ -138,9 +149,23 @@ contract sBombToken is ERC20, Ownable {
         address to
     ) external lockTheSwap {
         require(tokenAmount0 > 0 && tokenAmount1 > 0, "ZERO");
-        TransferHelper.safeTransferFrom(address(this), _msgSender(), address(this), tokenAmount0);
+        require(
+            token1 != address(this) && token1 != address(0),
+            "INVALID ADDRESSES"
+        );
+        TransferHelper.safeTransferFrom(
+            address(this),
+            _msgSender(),
+            address(this),
+            tokenAmount0
+        );
         _approve(address(this), address(dexRouter), tokenAmount0);
-        TransferHelper.safeTransferFrom(token1, _msgSender(), address(this), tokenAmount1);
+        TransferHelper.safeTransferFrom(
+            token1,
+            _msgSender(),
+            address(this),
+            tokenAmount1
+        );
         TransferHelper.safeApprove(token1, address(dexRouter), tokenAmount1);
         (uint256 finalToken0, uint256 finalToken1, ) = dexRouter.addLiquidity(
             address(this),
@@ -153,11 +178,92 @@ contract sBombToken is ERC20, Ownable {
             block.timestamp
         );
 
-        if(finalToken0 < tokenAmount0)
-            TransferHelper.safeTransfer(address(this), _msgSender(), tokenAmount0 - finalToken0);
+        if (finalToken0 < tokenAmount0)
+            TransferHelper.safeTransfer(
+                address(this),
+                _msgSender(),
+                tokenAmount0 - finalToken0
+            );
 
-        if(finalToken1 < tokenAmount1)
-            TransferHelper.safeTransfer(token1, _msgSender(), tokenAmount1 - finalToken1);
+        if (finalToken1 < tokenAmount1)
+            TransferHelper.safeTransfer(
+                token1,
+                _msgSender(),
+                tokenAmount1 - finalToken1
+            );
+    }
+
+    /** @dev Public function for removing liquidity from SBOMB-ETH pair without 6% fee
+     * @param liquidity LP-token amount to burn
+     * @param amountTokenMin min sBomb amount going to user
+     * @param amountETHMin min ETH amount going to user
+     * @param to address for ETH & SBOMB
+     */
+    function noFeeRemoveLiquidityETH(
+        uint256 liquidity,
+        uint256 amountTokenMin,
+        uint256 amountETHMin,
+        address to
+    ) external lockTheSwap {
+        require(liquidity > 0, "ZERO");
+        address pair = IUniswapV2Factory(dexRouter.factory()).getPair(
+            address(this),
+            dexRouter.WETH()
+        );
+        require(pair != address(0), "INVALID PAIR");
+        TransferHelper.safeTransferFrom(
+            pair,
+            _msgSender(),
+            address(this),
+            liquidity
+        );
+        IERC20(pair).approve(address(dexRouter), liquidity);
+        dexRouter.removeLiquidityETH(
+            address(this),
+            liquidity,
+            amountTokenMin,
+            amountETHMin,
+            to,
+            block.timestamp
+        );
+    }
+
+    /** @dev Public function for removing liquidity from SBOMB-<TOKEN> pair without 6% fee
+     * @param token1 another token address
+     * @param liquidity LP-token amount
+     * @param amount0Min min sBomb amount going to user
+     * @param amount1Min min <TOKEN> amount going to user
+     * @param to address for <TOKEN> & SBOMB
+     */
+    function noFeeRemoveLiquidity(
+        address token1,
+        uint256 liquidity,
+        uint256 amount0Min,
+        uint256 amount1Min,
+        address to
+    ) external lockTheSwap {
+        require(liquidity > 0, "ZERO");
+        address pair = IUniswapV2Factory(dexRouter.factory()).getPair(
+            address(this),
+            address(token1)
+        );
+        require(pair != address(0), "INVALID PAIR");
+        TransferHelper.safeTransferFrom(
+            pair,
+            _msgSender(),
+            address(this),
+            liquidity
+        );
+        IERC20(pair).approve(address(dexRouter), liquidity);
+        dexRouter.removeLiquidity(
+            address(this),
+            token1,
+            liquidity,
+            amount0Min,
+            amount1Min,
+            to,
+            block.timestamp
+        );
     }
 
     function _swapTokensForEth(
@@ -219,14 +325,22 @@ contract sBombToken is ERC20, Ownable {
                     path[1] = SHIBAKEN;
                     path[2] = dexRouter.WETH();
 
-                    if (_pairExisting(path))
-                        _swapTokensForEth(lotteryFee, lotteryContract, path);
+                    if (_pairExisting(path)) {
+                        _swapTokensForEth(lotteryFee, address(this), path);
+                        ITimeBomb(timeBombContract).register{
+                            value: address(this).balance
+                        }(recipient);
+                    }
                 } else {
                     address[] memory path = new address[](2);
                     path[0] = address(this);
                     path[1] = dexRouter.WETH();
-                    if (_pairExisting(path))
-                        _swapTokensForEth(lotteryFee, lotteryContract, path);
+                    if (_pairExisting(path)) {
+                        _swapTokensForEth(lotteryFee, address(this), path);
+                        ITimeBomb(timeBombContract).register{
+                            value: address(this).balance
+                        }(recipient);
+                    }
                 }
 
                 //BURN FEE
@@ -272,32 +386,53 @@ contract sBombToken is ERC20, Ownable {
                     _swapTokensForTokens(burnFee, DEAD_ADDRESS, path);
                 }
 
-                //TEAM FEE
+                //TEAM & LIQUIDITY FEE
                 path[1] = dexRouter.WETH();
                 if (_pairExisting(path)) {
-                    super._transfer(sender, address(this), toTeam);
-                    _approve(address(this), address(dexRouter), toTeam);
+                    super._transfer(
+                        sender,
+                        address(this),
+                        toTeam + toLiquidity
+                    );
+                    _approve(
+                        address(this),
+                        address(dexRouter),
+                        toTeam + toLiquidity
+                    );
                     _swapTokensForEth(toTeam, teamWallet, path);
-                }
 
-                //LIQUIDITY FEE
-                if (_pairExisting(path)) {
-                    super._transfer(sender, address(this), toLiquidity);
-                    _approve(address(this), address(dexRouter), toLiquidity);
-                    uint256 half = toLiquidity / 2;
+                    IUniswapV2Pair pair = IUniswapV2Pair(
+                        IUniswapV2Factory(dexRouter.factory()).getPair(
+                            path[0],
+                            path[1]
+                        )
+                    );
+                    (uint256 reserve0, uint256 reserve1, ) = pair.getReserves();
+                    uint256 half = getOptimalAmountToSell(
+                        int256(
+                            address(this) == pair.token0() ? reserve0 : reserve1
+                        ),
+                        int256(toLiquidity)
+                    );
                     uint256 anotherHalf = toLiquidity - half;
                     _swapTokensForEth(half, address(this), path);
                     inSwap = true;
-                    (uint256 tokenAmount , , ) = dexRouter.addLiquidityETH{value: address(this).balance}(
+                    (uint256 tokenAmount, , ) = dexRouter.addLiquidityETH{
+                        value: address(this).balance
+                    }(
                         address(this),
                         anotherHalf,
                         0,
                         0,
                         DEAD_ADDRESS,
-                        block.timestamp + 15 minutes
+                        block.timestamp
                     );
                     if (tokenAmount < anotherHalf)
-                        super._transfer(address(this), recipient, anotherHalf - tokenAmount);
+                        super._transfer(
+                            address(this),
+                            recipient,
+                            anotherHalf - tokenAmount
+                        );
                     inSwap = false;
                 }
 
@@ -364,5 +499,30 @@ contract sBombToken is ERC20, Ownable {
             size := extcodesize(addr)
         }
         return size > 0;
+    }
+
+    function getOptimalAmountToSell(int256 X, int256 dX)
+        private
+        pure
+        returns (uint256)
+    {
+        int256 feeDenom = 1000000;
+        int256 f = 998000; // 1 - fee
+        unchecked {
+            int256 T1 = X * (X * (feeDenom + f)**2 + 4 * feeDenom * dX * f);
+
+            // square root
+            int256 z = (T1 + 1) / 2;
+            int256 sqrtT1 = T1;
+            while (z < sqrtT1) {
+                sqrtT1 = z;
+                z = (T1 / z + z) / 2;
+            }
+
+            return
+                uint256(
+                    (2 * feeDenom * dX * X) / (sqrtT1 + X * (feeDenom + f))
+                );
+        }
     }
 }

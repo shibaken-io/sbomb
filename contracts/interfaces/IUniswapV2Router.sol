@@ -39,21 +39,24 @@ interface IUniswapV2Router {
             uint256 liquidity
         );
 
-    /* function swapExactTokensForETH(
-        uint256 amountIn,
-        uint256 amountOutMin,
-        address[] calldata path,
+    function removeLiquidityETH(
+        address token,
+        uint256 liquidity,
+        uint256 amountTokenMin,
+        uint256 amountETHMin,
         address to,
         uint256 deadline
-    ) external returns (uint256[] memory amounts);
+    ) external returns (uint256 amountToken, uint256 amountETH);
 
-    function swapExactTokensForTokens(
-        uint256 amountIn,
-        uint256 amountOutMin,
-        address[] calldata path,
+    function removeLiquidity(
+        address tokenA,
+        address tokenB,
+        uint256 liquidity,
+        uint256 amountAMin,
+        uint256 amountBMin,
         address to,
         uint256 deadline
-    ) external returns (uint256[] memory amounts); */
+    ) external returns (uint256 amountA, uint256 amountB);
 
     function swapExactTokensForETHSupportingFeeOnTransferTokens(
         uint256 amountIn,

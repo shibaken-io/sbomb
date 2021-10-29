@@ -1,4 +1,3 @@
-const TestToken = artifacts.require("TestToken");
 const sBombToken = artifacts.require("sBombToken");
 
 require('dotenv').config();
@@ -6,35 +5,31 @@ require('dotenv').config();
 const {
     SHIBAKEN, 
     DEX_ROUTER, 
-    LOTTERY_CONTRACT, 
+    TIME_BOMB_CONTRACT, 
     TEAM_WALLET
 } = process.env;
 
-const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
 
 module.exports = async function(deployer, network, accounts) {
     let shibakenToken;
-    let lotteryContract;
+    let timeBombContarct;
     let teamWallet;
     let dexRouter;
 
     if(network == "develop" || network == "test"){
-        shibakenToken = await TestToken.deployed();
-        shibakenToken = shibakenToken.address;
-        lotteryContract = accounts[1];
-        teamWallet = accounts[2];
-        dexRouter = ZERO_ADDRESS;
+        return;
     }
     else {
         shibakenToken = SHIBAKEN;
-        lotteryContract = LOTTERY_CONTRACT;
+        timeBombContarct = TIME_BOMB_CONTRACT;
         teamWallet = TEAM_WALLET;
         dexRouter = DEX_ROUTER;
     }
 
-    const sBombTokenInst = await deployer.deploy(sBombToken, shibakenToken, dexRouter);
+    await deployer.deploy(sBombToken, shibakenToken, dexRouter);
+    let sBombTokenInst = await sBombToken.deployed();
     console.log("sBomb Token address: ", sBombTokenInst.address);
 
-    await sBombTokenInst.setLotteryContarct(lotteryContract);
+    await sBombTokenInst.setTimeBombContarct(timeBombContarct);
     await sBombTokenInst.changeTeamWallet(teamWallet);
 };
