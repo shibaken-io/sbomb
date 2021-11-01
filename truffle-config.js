@@ -39,7 +39,7 @@ module.exports = {
       host: "127.0.0.1",     // Localhost (default: none)
       port: 8545,            // Standard Ethereum port (default: none)
       network_id: "*",       // Any network (default: none)
-      //disableConfirmationListener: true
+      gas: 6721975
     },
     mainnet: {
       provider: () => new HDWalletProvider(MNEMONIC, "https://mainnet.infura.io/v3/" + INFURA_ID_PROJECT),
@@ -75,7 +75,7 @@ module.exports = {
         skipDryRun: true
     }
   },
-  mocha: {
+ /*mocha: {
     reporter: 'eth-gas-reporter',
     reporterOptions : {    
       currency: 'USD',

@@ -17,6 +17,7 @@ contract StakingReward is Context, Ownable, Initializable {
     uint256 private lastUpdate;
     uint256 private tokenRate;
     uint256 private holdersAmount;
+    uint256 private YEAR = 60 * 60 * 24 * 30 * 12;
 
     uint256 private constant percentToDev = 3;
     uint256 private constant percentToDead = 3;
@@ -24,7 +25,6 @@ contract StakingReward is Context, Ownable, Initializable {
 
     uint256 private constant MULTIPLIER = 10**19;
     uint256 private constant LOCK_UP_PERIOD = 60 * 60 * 24 * 30;
-    uint256 private constant YEAR = 60 * 60 * 24 * 30 * 12;
     address private constant DEAD_WALLET =
         0x000000000000000000000000000000000000dEaD;
 
@@ -195,16 +195,8 @@ contract StakingReward is Context, Ownable, Initializable {
         view
         returns (int256 rewards)
     {
-        uint256 stamp = getStamp();
         uint256 multiplier = MULTIPLIER;
-        if (stakedSum != 0)
-            rewards = int256(
-                (users[_investor].amount *
-                    tokenRate *
-                    (stamp - lastUpdate) *
-                    multiplier) / stakedSum
-            );
-        rewards = rewards + calculateReward(_investor);
+        rewards = calculateReward(_investor);
         rewards = (rewards / int256(multiplier * multiplier));
     }
 
@@ -247,6 +239,11 @@ contract StakingReward is Context, Ownable, Initializable {
             "Staking: !transfer"
         );
 
+        if (stakedSum == 0 && block.timestamp - startProcess < YEAR) {
+            YEAR = YEAR - (block.timestamp - startProcess);
+            startProcess = 0;
+        }
+
         emit WithdrawForUser(investor, _amount);
     }
 
@@ -255,20 +252,11 @@ contract StakingReward is Context, Ownable, Initializable {
         UserInfo memory _user = users[investor];
 
         uint256 multiplier = MULTIPLIER;
-        int256 rewards;
-        uint256 stamp = getStamp();
-        
-        if (stakedSum != 0)
-            rewards = int256(
-                (_user.amount * tokenRate * (stamp - lastUpdate) * multiplier) /
-                    stakedSum
-            );
-        rewards = rewards + calculateReward(investor);
+        int256 rewards = calculateReward(investor);
 
         require(rewards > 0, "Staking: rewards != 0");
 
         uint256 amountForTransfer;
-
         if (block.timestamp - startProcess <= YEAR)
             amountForTransfer = uint256(
                 rewards / int256(multiplier * multiplier)
@@ -290,9 +278,7 @@ contract StakingReward is Context, Ownable, Initializable {
             IERC20(rewardToken).transfer(investor, amountForTransfer),
             "Staking: reward !transfer"
         );
-
         users[investor].assignedReward = _user.assignedReward - rewards;
-
         emit ClaimForUser(investor, amountForTransfer);
     }
 
@@ -302,8 +288,15 @@ contract StakingReward is Context, Ownable, Initializable {
         returns (int256 rewards)
     {
         UserInfo memory _user = users[investor];
-        rewards = rewards +
-            _user.assignedReward + 
+        uint256 stamp = getStamp();
+        if (stakedSum != 0)
+            rewards = int256(
+                (_user.amount * tokenRate * (stamp - lastUpdate) * MULTIPLIER) /
+                    stakedSum
+            );
+        rewards =
+            rewards +
+            _user.assignedReward +
             int256(
                 _user.amount *
                     tokenRate *
@@ -312,12 +305,12 @@ contract StakingReward is Context, Ownable, Initializable {
     }
 
     function updateVars(address investor, int256 _amount) private {
-        uint256 stamp = getStamp();    
-        if (lastUpdate != 0)
+        uint256 stamp = getStamp();
+        users[investor].assignedReward = calculateReward(investor);
+        if (lastUpdate != 0 && stakedSum != 0)
             globalCoefficient +=
                 ((stamp - lastUpdate) * MULTIPLIER) /
                 stakedSum;
-        users[investor].assignedReward = calculateReward(investor);
         users[investor].globalCoefficientMinus = globalCoefficient;
         users[investor].amount = uint256(
             int256(users[investor].amount) + _amount
