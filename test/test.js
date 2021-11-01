@@ -16,7 +16,7 @@ const _TEN = new BN('10')
 const _FIFTEEN = new BN('15')
 const _STO = new BN('100')
 
-const MULTIPLIER  = new BN((10**18).toString())
+const MULTIPLIER  = new BN((10**19).toString())
 const TWO = new BN((2*10**18).toString())
 const TROI = new BN((3*10**18).toString())
 const FIVE = new BN((5 * 10 ** 18).toString())
@@ -298,8 +298,7 @@ contract('Staking', ([
         expect((await Staking.getUserInfo(alice)).amount).to.be.bignumber.equals(_ZERO)
         
         expect((await tokenReward.balanceOf(Staking.address))).to.be.bignumber.equals(_ZERO)
-    }) 
-    
+    })
     
     it('#2 Deposit 5 tokens from Alice -> Increase time - 30days -> Deposit 10 tokens from Bob -> Increase time - 30days -> Claim', async () => {
         let rewards_alice, rewards_bob, timestamp_deposit_alice, timestamp_deposit_bob, timestamp_claim_alice, timestamp_claim_bob, timestamp_withdraw_alice, timestamp_withdraw_bob, timestamp_claim_alice_1, timestamp_claim_bob_1
@@ -410,8 +409,8 @@ contract('Staking', ([
         rewards_bob = (((new BN(end)).sub(new BN(timestamp_claim_bob))).mul(N).mul(TEN).div(FIVE.add(TEN)).div(MULTIPLIER))
         
         expect((await tokenReward.balanceOf(Staking.address))).to.be.bignumber.equals(_ZERO)
+        //console.log((await tokenReward.balanceOf(Staking.address)).toString())
     })
-    
     
     it('#3 Deposit 10 tokens from Alice -> Increase time - 30days -> Deposit 10 tokens from Bob -> Increase time - 30days -> WITHDRAW 5 tokens for Alice -> Increase time - 30days -> WITHDRAW 5 tokens for bob -> Increase time - 30days -> CLAIM', async () => {
 
@@ -502,6 +501,7 @@ contract('Staking', ([
         expect((await Staking.getUserInfo(bob)).amount).to.be.bignumber.equals(_ZERO)
 
         expect((await tokenReward.balanceOf(Staking.address))).to.be.bignumber.equals(_ZERO)
+        //console.log((await tokenReward.balanceOf(Staking.address)).toString())
     }) 
    
     it('#4 deposit for alice ang eva 10 tokens -> Increase time - 30days -> deposit for bob 5 tokens and withdraw for eva and alice 5 tokens ->  Increase time - 30days -> check claiming', async () => {
@@ -576,6 +576,7 @@ contract('Staking', ([
         await Staking.getTokensForOwner( owner, {from: owner} )
 
         expect((await tokenReward.balanceOf(Staking.address))).to.be.bignumber.equals(_ZERO)
+        //console.log((await tokenReward.balanceOf(Staking.address)).toString())
     })
 
     it('#5 check requires', async () => {
@@ -623,4 +624,5 @@ contract('Staking', ([
 
        
     })
+
 })

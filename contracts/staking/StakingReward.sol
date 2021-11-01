@@ -22,7 +22,7 @@ contract StakingReward is Context, Ownable, Initializable {
     uint256 private constant percentToDead = 3;
     uint256 private constant PERCENT_BASE = 100;
 
-    uint256 private constant MULTIPLIER = 10**18;
+    uint256 private constant MULTIPLIER = 10**19;
     uint256 private constant LOCK_UP_PERIOD = 60 * 60 * 24 * 30;
     uint256 private constant YEAR = 60 * 60 * 24 * 30 * 12;
     address private constant DEAD_WALLET =
@@ -53,7 +53,6 @@ contract StakingReward is Context, Ownable, Initializable {
 
     modifier contractWasInitiated() {
         require(tokenRate > 0, "Staking: not init");
-
         _;
     }
 
@@ -114,7 +113,6 @@ contract StakingReward is Context, Ownable, Initializable {
         );
 
         _amount = IERC20(stakedToken).balanceOf(address(this)) - amountBefore;
-
         updateVars(investor, int256(_amount));
 
         emit DepositTokenForUser(investor, _amount, users[investor].start);
@@ -125,9 +123,7 @@ contract StakingReward is Context, Ownable, Initializable {
      */
     function getTokensForOwner(address _to) external onlyOwner {
         uint256 balance = IERC20(stakedToken).balanceOf(address(this));
-
         require(balance > stakedSum, "Staking:balance <= stakedSum");
-
         uint256 amount = balance - stakedSum;
         if (amount > 0) {
             require(
@@ -146,7 +142,6 @@ contract StakingReward is Context, Ownable, Initializable {
                 "Staking: !transfer"
             );
         }
-
         emit EmergencyExit(amount);
     }
 
@@ -259,8 +254,9 @@ contract StakingReward is Context, Ownable, Initializable {
         UserInfo memory _user = users[investor];
 
         uint256 multiplier = MULTIPLIER;
-        uint256 stamp = getStamp();
         int256 rewards;
+        uint256 stamp = getStamp();
+        
         if (stakedSum != 0)
             rewards = int256(
                 (_user.amount * tokenRate * (stamp - lastUpdate) * multiplier) /
@@ -284,7 +280,7 @@ contract StakingReward is Context, Ownable, Initializable {
                 );
             } else {
                 amountForTransfer = uint256(
-                    rewards / int256(MULTIPLIER * MULTIPLIER)
+                    rewards / int256(multiplier * multiplier)
                 );
             }
         }
@@ -305,8 +301,8 @@ contract StakingReward is Context, Ownable, Initializable {
         returns (int256 rewards)
     {
         UserInfo memory _user = users[investor];
-        rewards =
-            _user.assignedReward +
+        rewards = rewards +
+            _user.assignedReward + 
             int256(
                 _user.amount *
                     tokenRate *
@@ -316,17 +312,16 @@ contract StakingReward is Context, Ownable, Initializable {
 
     function updateVars(address investor, int256 _amount) private {
         uint256 stamp = getStamp();
+        
         if (lastUpdate != 0)
             globalCoefficient +=
                 ((stamp - lastUpdate) * MULTIPLIER) /
                 stakedSum;
-
         users[investor].assignedReward = calculateReward(investor);
         users[investor].globalCoefficientMinus = globalCoefficient;
         users[investor].amount = uint256(
             int256(users[investor].amount) + _amount
         );
-
         stakedSum = uint256(int256(stakedSum) + _amount);
         lastUpdate = stamp;
     }
