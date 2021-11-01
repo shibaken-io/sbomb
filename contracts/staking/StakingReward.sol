@@ -196,15 +196,16 @@ contract StakingReward is Context, Ownable, Initializable {
         returns (int256 rewards)
     {
         uint256 stamp = getStamp();
+        uint256 multiplier = MULTIPLIER;
         if (stakedSum != 0)
             rewards = int256(
                 (users[_investor].amount *
                     tokenRate *
                     (stamp - lastUpdate) *
-                    MULTIPLIER) / stakedSum
+                    multiplier) / stakedSum
             );
         rewards = rewards + calculateReward(_investor);
-        rewards = (rewards / int256(MULTIPLIER * MULTIPLIER));
+        rewards = (rewards / int256(multiplier * multiplier));
     }
 
     /**
@@ -311,8 +312,7 @@ contract StakingReward is Context, Ownable, Initializable {
     }
 
     function updateVars(address investor, int256 _amount) private {
-        uint256 stamp = getStamp();
-        
+        uint256 stamp = getStamp();    
         if (lastUpdate != 0)
             globalCoefficient +=
                 ((stamp - lastUpdate) * MULTIPLIER) /
