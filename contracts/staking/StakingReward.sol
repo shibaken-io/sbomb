@@ -17,7 +17,8 @@ contract StakingReward is Context, Ownable, Initializable {
     uint256 private lastUpdate;
     uint256 private tokenRate;
     uint256 private holdersAmount;
-    uint256 private YEAR = 60 * 60 * 24 * 30 * 12;
+    uint256 private campaignDuration;
+    
 
     uint256 private constant percentToDev = 3;
     uint256 private constant percentToDead = 3;
@@ -25,6 +26,7 @@ contract StakingReward is Context, Ownable, Initializable {
 
     uint256 private constant MULTIPLIER = 10**19;
     uint256 private constant LOCK_UP_PERIOD = 60 * 60 * 24 * 30;
+    uint256 private constant YEAR = 60 * 60 * 24 * 30 * 12;
     address private constant DEAD_WALLET =
         0x000000000000000000000000000000000000dEaD;
 
@@ -83,6 +85,7 @@ contract StakingReward is Context, Ownable, Initializable {
         stakedToken = _stakedToken;
         devWallet = _devWallet;
         tokenRate = (balance * MULTIPLIER) / _period;
+        campaignDuration = YEAR; 
     }
 
     /**
@@ -94,7 +97,7 @@ contract StakingReward is Context, Ownable, Initializable {
         if (startProcess == 0) startProcess = block.timestamp;
         else {
             require(
-                block.timestamp - startProcess < YEAR,
+                block.timestamp - startProcess < campaignDuration,
                 "Staking: out of time"
             );
         }
@@ -190,8 +193,8 @@ contract StakingReward is Context, Ownable, Initializable {
      * @param _investor address of user
      * @return rewards next rewards for investor
      */
-    function getNextReward(address _investor)
-        external
+    function getReward(address _investor)
+        public
         view
         returns (int256 rewards)
     {
@@ -239,8 +242,13 @@ contract StakingReward is Context, Ownable, Initializable {
             "Staking: !transfer"
         );
 
-        if (stakedSum == 0 && block.timestamp - startProcess < YEAR) {
-            YEAR = YEAR - (block.timestamp - startProcess);
+        if ( users[investor].amount == 0 && getReward(investor) != 0) {
+            claim();
+            if (block.timestamp - startProcess <=  campaignDuration) holdersAmount -= 1;
+        }
+
+        if (stakedSum == 0 && block.timestamp - startProcess < campaignDuration ) {
+            campaignDuration  = campaignDuration  - (block.timestamp - startProcess);
             startProcess = 0;
         }
 
@@ -257,7 +265,7 @@ contract StakingReward is Context, Ownable, Initializable {
         require(rewards > 0, "Staking: rewards != 0");
 
         uint256 amountForTransfer;
-        if (block.timestamp - startProcess <= YEAR)
+        if (block.timestamp - startProcess <=  campaignDuration)
             amountForTransfer = uint256(
                 rewards / int256(multiplier * multiplier)
             );
@@ -320,10 +328,10 @@ contract StakingReward is Context, Ownable, Initializable {
     }
 
     function getStamp() private view returns (uint256 stamp) {
-        if (block.timestamp - startProcess < YEAR) {
+        if (block.timestamp - startProcess < campaignDuration ) {
             stamp = block.timestamp;
         } else {
-            stamp = startProcess + YEAR;
+            stamp = startProcess + campaignDuration ;
         }
     }
 }

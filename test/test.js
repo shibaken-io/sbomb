@@ -237,9 +237,9 @@ contract('Staking', ([
         rewards_alice = N.mul((new BN(timestamp_deposit_2)).sub(new BN(timestamp_claim_1))).div(MULTIPLIER)
         
         try {
-            expect(await Staking.getNextReward(alice)).to.be.bignumber.equals(rewards_alice)
+            expect(await Staking.getReward(alice)).to.be.bignumber.equals(rewards_alice)
         } catch {
-            expect(Math.abs((await Staking.getNextReward(alice)).sub(rewards_alice))).to.be.lessThanOrEqual(1)
+            expect(Math.abs((await Staking.getReward(alice)).sub(rewards_alice))).to.be.lessThanOrEqual(1)
         }
         
         glKoff = glKoff.add(((new BN(timestamp_deposit_2)).sub(new BN(timestamp_withdraw_1))).mul(MULTIPLIER).div(TWO))
@@ -281,10 +281,10 @@ contract('Staking', ([
         try {
             expect((await Staking.geNextReward(alice))).to.be.bignumber.equals(rewards_alice)
         } catch {
-            expect(Math.abs(((await Staking.getNextReward(alice)).sub(rewards_alice)))).to.be.lessThanOrEqual(parseInt(N))
+            expect(Math.abs(((await Staking.getReward(alice)).sub(rewards_alice)))).to.be.lessThanOrEqual(parseInt(N))
         }
         
-        await Staking.claim({ from: alice })
+        //await Staking.claim({ from: alice })
 
         percents = (TROI.mul(_THREE.add(_THREE))).div(_STO)
         withoutFee = TROI.sub(percents)
@@ -393,8 +393,8 @@ contract('Staking', ([
         let end = timestamp_deposit_alice + 60*60*24*30*12 
 
        
-        await Staking.claim({ from: alice })
-        await Staking.claim({ from: bob })
+        //await Staking.claim({ from: alice })
+       // await Staking.claim({ from: bob })
         
         rewards_alice = rewards_alice.add( N.mul((new BN(end)).sub(new BN(timestamp_claim_alice))).mul(FIVE).div(FIVE.add(TEN)).div(MULTIPLIER) )
         rewards_bob = rewards_bob.add(N.mul((new BN(end)).sub(new BN(timestamp_claim_bob))).mul(TEN).div(FIVE.add(TEN)).div(MULTIPLIER))
@@ -483,7 +483,7 @@ contract('Staking', ([
 
         rewards_alice = rewards_alice.add(((new BN(end)).sub(new BN(timestamp_withdraw_bob))).mul(N).mul(FIVE).div(TEN).div(MULTIPLIER))
         rewards_bob = rewards_bob.add(((new BN(end)).sub(new BN(timestamp_withdraw_bob))).mul(N).mul(FIVE).div(TEN).div(MULTIPLIER))
-        rewards_alice = await Staking.getNextReward(alice)
+        rewards_alice = await Staking.getReward(alice)
         
         await Staking.claim({ from: alice })
         await Staking.claim({ from: bob })
@@ -543,21 +543,21 @@ contract('Staking', ([
         rewards_bob = rewards_bob.add(((new BN(end)).sub(new BN(timestamp_withdraw_eva))).mul(N).mul(FIVE).div(TEN.add(FIVE)).div(MULTIPLIER))
 
         try {
-            expect((await Staking.getNextReward(alice))).to.be.bignumber.equals(rewards_alice)
+            expect((await Staking.getReward(alice))).to.be.bignumber.equals(rewards_alice)
         } catch {
-            expect(Math.abs((await Staking.getNextReward(alice)).sub(rewards_alice))).to.be.lessThanOrEqual(2)
+            expect(Math.abs((await Staking.getReward(alice)).sub(rewards_alice))).to.be.lessThanOrEqual(2)
         }
         
         try {
-            expect((await Staking.getNextReward(bob))).to.be.bignumber.equals(rewards_bob)
+            expect((await Staking.getReward(bob))).to.be.bignumber.equals(rewards_bob)
         } catch {
-            expect(Math.abs((await Staking.getNextReward(bob)).sub(rewards_bob))).to.be.lessThanOrEqual(1)
+            expect(Math.abs((await Staking.getReward(bob)).sub(rewards_bob))).to.be.lessThanOrEqual(1)
         }
 
         try {
-            expect((await Staking.getNextReward(eva))).to.be.bignumber.equals(rewards_eva)
+            expect((await Staking.getReward(eva))).to.be.bignumber.equals(rewards_eva)
         } catch {
-            expect(Math.abs((await Staking.getNextReward(eva)).sub(rewards_eva))).to.be.lessThanOrEqual(2)
+            expect(Math.abs((await Staking.getReward(eva)).sub(rewards_eva))).to.be.lessThanOrEqual(2)
         }
 
         await time.increase(time.duration.days(10*30))
@@ -566,9 +566,9 @@ contract('Staking', ([
         await Staking.withdraw(FIVE, { from: bob })
         await Staking.withdraw(FIVE, { from: eva })
 
-        await Staking.claim({ from: alice })
-        await Staking.claim({ from: bob })
-        await Staking.claim({ from: eva })
+       // await Staking.claim({ from: alice })
+       // await Staking.claim({ from: bob })
+      //  await Staking.claim({ from: eva })
 
         await Staking.getTokensForOwner( owner, {from: owner} )
 
@@ -600,7 +600,7 @@ contract('Staking', ([
 
         await Staking.withdraw( FIVE, { from: alice })
 
-        await Staking.claim({ from: alice })
+       // await Staking.claim({ from: alice })
         
         await expectRevert(
             Staking.claim({ from: alice }) ,
@@ -757,8 +757,8 @@ contract('Staking', ([
         timestamp_withdraw_eva = (await web3.eth.getBlock((await Staking.withdraw(TEN, { from: eva })).receipt.blockNumber)).timestamp
         timestamp_withdraw_alice = (await web3.eth.getBlock((await Staking.withdraw(FIVE, { from: alice })).receipt.blockNumber)).timestamp
         
-        timestamp_claim_eva = (await web3.eth.getBlock((await Staking.claim({ from: eva })).receipt.blockNumber)).timestamp
-        timestamp_claim_alice = (await web3.eth.getBlock((await Staking.claim({ from: alice })).receipt.blockNumber)).timestamp
+       // timestamp_claim_eva = (await web3.eth.getBlock((await Staking.claim({ from: eva })).receipt.blockNumber)).timestamp
+      // timestamp_claim_alice = (await web3.eth.getBlock((await Staking.claim({ from: alice })).receipt.blockNumber)).timestamp
         
         rewards_eva = rewards_eva.add(((new BN(end)).sub(new BN(timestamp_deposit_alice))).mul(N).mul(TEN).div(TEN.add(FIVE)).div(MULTIPLIER))
         
@@ -773,7 +773,7 @@ contract('Staking', ([
         try {
             expect(await tokenReward.balanceOf(eva)).to.be.bignumber.equals(rewards_eva)
         } catch {
-            expect(Math.abs((await tokenReward.balanceOf(eva)).sub(rewards_eva)).toString()).to.be.lessThanOrEqual(2)
+            expect(Math.abs((await tokenReward.balanceOf(eva)).sub(rewards_eva))).to.be.lessThanOrEqual(2)
         }
     })
 
