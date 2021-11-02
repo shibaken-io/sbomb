@@ -593,7 +593,12 @@ contract('Staking', ([
         await Staking.deposit( FIVE, { from: bob });
 
         await time.increase(time.duration.days(30));
-
+        
+        await expectRevert(
+            Staking.withdraw( _ZERO, { from: alice }),
+            "Staking: amount > 0"
+        ); 
+        
         await Staking.withdraw( FIVE, { from: alice });
        
         await expectRevert(
