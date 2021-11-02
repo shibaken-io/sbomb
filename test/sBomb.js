@@ -285,14 +285,15 @@ contract(
             let shibakenToBurn = await pancakeRouterInstant.getAmountsOut(FIVE.mul(ONE_TOKEN), [sBombToken.address, shibakenToken.address]);
             let ethToTeam = await pancakeRouterInstant.getAmountsOut(FIVE.mul(TEN).mul(ONE_TOKEN).mul(FIVE).div(ONE_HUNDRED), [sBombToken.address, wethInst.address]);
             let sBombEthReserves = await sBombEthLP.getReserves();
-            console.log(await sBombEthLP.token0(), await sBombEthLP.token1());
             let ethToLiquidity = ethToTeam[1].div(TWO);
-            let sBombToLiquidity = (FIVE.mul(TEN).mul(ONE_TOKEN).mul(FIVE).div(ONE_HUNDRED)).sub(FIVE.mul(TEN).mul(ONE_TOKEN).mul(FIVE).div(ONE_HUNDRED).div(TWO))
-            let amountEthOptimal  = sBombToLiquidity.mul(sBombEthReserves[1]).div(sBombEthReserves[0]);
-            let amountSBombOptimal = ethToLiquidity.mul(sBombEthReserves[0]).div(sBombEthReserves[1]);
+            let sBombToLiquidity = (FIVE.mul(TEN).mul(ONE_TOKEN).mul(FIVE).div(ONE_HUNDRED)).sub(FIVE.mul(TEN).mul(ONE_TOKEN).mul(FIVE).div(ONE_HUNDRED).div(TWO));
+            let sbombReserve = sBombToken.address == sBombEthLP.token0() ? sBombEthReserves[0] : sBombEthReserves[1];
+            let ethReserve = sBombToken.address == sBombEthLP.token0() ? sBombEthReserves[1] : sBombEthReserves[0];
+            let amountEthOptimal  = sBombToLiquidity.mul(ethReserve).div(sbombReserve);
+            let amountSBombOptimal = ethToLiquidity.mul(sbombReserve).div(ethReserve);
             ethToLiquidity = ethToLiquidity < amountEthOptimal ? amountEthOptimal : ethToLiquidity;
             sBombToLiquidity = sBombToLiquidity < amountSBombOptimal ? amountSBombOptimal : sBombToLiquidity;
-            let lpTokenAmountToMint = BN.min(ethToLiquidity.mul(await sBombEthLP.totalSupply()).div(sBombEthReserves[1]), sBombToLiquidity.mul(await sBombEthLP.totalSupply()).div(sBombEthReserves[0]));
+            let lpTokenAmountToMint = BN.min(ethToLiquidity.mul(await sBombEthLP.totalSupply()).div(ethReserve), sBombToLiquidity.mul(await sBombEthLP.totalSupply()).div(sbombReserve));
 
             const shibakenBalanceBefore = await shibakenToken.balanceOf(DEAD_ADDRESS);
             const teamBalanceBefore = await web3.eth.getBalance(team);
@@ -334,6 +335,8 @@ contract(
             const deadBalanceLPBefore = await sBombEthLP.balanceOf(DEAD_ADDRESS);
             const teamWalletBefore = await web3.eth.getBalance(team);
             const reserves0 = await sBombEthLP.getReserves();
+            const ethBeforeReserve = sBombToken.address == sBombEthLP.token0() ? reserves0[1] : reserves0[0];
+            const sbombBeforeReserve = sBombToken.address == sBombEthLP.token0() ? reserves0[0] : reserves0[1];
 
             assert.equal(await web3.eth.getBalance(sBombToken.address), 0);
 
@@ -355,8 +358,10 @@ contract(
             expect(deadBalanceShibakenAfter.sub(deadBalanceShibakenBefore)).bignumber.equal(ZERO);
             expect(deadBalanceLPAfter.sub(deadBalanceLPBefore)).bignumber.equal(ZERO);
             const reserves1 = await sBombEthLP.getReserves();
-            expect(reserves1[0].sub(reserves0[0])).bignumber.equal((ONE_TOKEN.div(ONE_THOUSAND)).mul(reserves0[0]).div(reserves0[1]));
-            expect(reserves1[1].sub(reserves0[1])).bignumber.equal(ONE_TOKEN.div(ONE_THOUSAND));
+            const ethAfterReserve = sBombToken.address == sBombEthLP.token0() ? reserves1[1] : reserves1[0];
+            const sbombAfterReserve = sBombToken.address == sBombEthLP.token0() ? reserves1[0] : reserves1[1];
+            expect(sbombAfterReserve.sub(sbombBeforeReserve)).bignumber.equal((ONE_TOKEN.div(ONE_THOUSAND)).mul(sbombBeforeReserve).div(ethBeforeReserve));
+            expect(ethAfterReserve.sub(ethBeforeReserve)).bignumber.equal(ONE_TOKEN.div(ONE_THOUSAND));
             assert.equal(teamWalletAfter - teamWalletBefore, 0);
         })
 
@@ -403,6 +408,8 @@ contract(
             await sBombEthLP.approve(sBombToken.address, lpBalance);
 
             const reserves = await sBombEthLP.getReserves();
+            const sbombReserve = sBombToken.address == sBombEthLP.token0() ? reserves[0] : reserves[1];
+            const ethReserve = sBombToken.address == sBombEthLP.token0() ? reserves[1] : reserves[0];
 
             await sBombToken.noFeeRemoveLiquidityETH(
                 lpBalance,
@@ -420,10 +427,10 @@ contract(
             expect(deadBalanceShibakenAfter.sub(deadBalanceShibakenBefore)).bignumber.equal(ZERO);
             assert.equal(lotteryBalanceAfter - lotteryBalanceBefore, 0);
 
-            expect(sBombBalanceAfter.sub(sBombBalanceBefore)).bignumber.equal(reserves[0].mul(lpBalance).div(totalSupply));
+            expect(sBombBalanceAfter.sub(sBombBalanceBefore)).bignumber.equal(sbombReserve.mul(lpBalance).div(totalSupply));
             let difference = await web3.utils.fromWei((ethBalanceAfter - ethBalanceBefore).toString(), 'ether');
             difference = parseFloat(difference).toFixed(1);
-            let finalAmount = await web3.utils.fromWei(reserves[1].mul(lpBalance).div(totalSupply), 'ether');
+            let finalAmount = await web3.utils.fromWei(ethReserve.mul(lpBalance).div(totalSupply), 'ether');
             finalAmount = parseFloat(finalAmount).toFixed(1);
             assert.equal(finalAmount.toString(), difference.toString());
         })
@@ -463,3 +470,21 @@ contract(
         })
     }
 )
+
+function getOptimalAmountToSell(X, dX)
+{
+    let feeDenom = 1000000;
+    let f = 998000; // 1 - fee
+    let T1 = X * (X * (feeDenom + f)**2 + 4 * feeDenom * dX * f);
+
+    // square root
+    let z = (T1 + 1) / 2;
+    let sqrtT1 = T1;
+    while (z < sqrtT1) {
+        sqrtT1 = z;
+        z = (T1 / z + z) / 2;
+    }
+
+    return((2 * feeDenom * dX * X) / (sqrtT1 + X * (feeDenom + f)));
+    
+}
