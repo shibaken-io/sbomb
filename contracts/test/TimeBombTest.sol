@@ -6,11 +6,11 @@ import "@chainlink/contracts/src/v0.8/VRFConsumerBase.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
-contract TimeBombGas is AccessControl, VRFConsumerBase, ReentrancyGuard {
+contract TimeBombTest is AccessControl, VRFConsumerBase, ReentrancyGuard {
 
     bytes32 public constant REGISTER_ROLE = keccak256("REGISTER_ROLE");
 
-    uint256 public txInit = 500;
+    uint256 public txInit = 10;
     uint256 public validAmount;
     IERC20 public immutable sBomb;
 
@@ -23,8 +23,8 @@ contract TimeBombGas is AccessControl, VRFConsumerBase, ReentrancyGuard {
         address winner;
     }
     mapping (uint256 => queue) public allQueues;
-    uint256 public currentQueue = type(uint256).max - 1;
-    uint256 public totalFinished = type(uint256).max - 1;
+    uint256 public currentQueue;
+    uint256 public totalFinished;
     uint256[] private requireRandomness;
 
     bytes32 private keyHash;
@@ -37,7 +37,7 @@ contract TimeBombGas is AccessControl, VRFConsumerBase, ReentrancyGuard {
             validAmount = _validAmount;
             sBomb = IERC20(_sBomb);
             _setupRole(DEFAULT_ADMIN_ROLE, _msgSender());
-            allQueues[type(uint256).max - 1].txLeft = 500;
+            allQueues[0].txLeft = 10;
     }
 
     function setValidAmount(uint256 _validAmount) external onlyRole(DEFAULT_ADMIN_ROLE) {

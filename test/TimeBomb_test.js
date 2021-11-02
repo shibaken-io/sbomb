@@ -1,7 +1,7 @@
 const { expect } = require('chai');
 const { BN, expectEvent, expectRevert, makeInterfaceId, time } = require('@openzeppelin/test-helpers');
 const { web3 } = require('@openzeppelin/test-helpers/src/setup');
-const TimeBomb = artifacts.require('TimeBomb');
+const TimeBomb = artifacts.require('TimeBombTest');
 const LINK = artifacts.require('LINKMock');
 
 const MINUS_ONE = new BN(-1);
@@ -41,12 +41,17 @@ contract (
         user3,
         user4,
         user5,
-        throwawayuser
+        throwawayuser,
     ]) => {
 
         beforeEach (async () => {
 
             VALID_AMOUNT = ONE_TOKEN.div(TEN).div(TEN);
+
+            sBombInst = await LINK.new(
+                "sBomb",
+                "sBomb"
+            );
 
             LINKInst = await LINK.new(
                 "LINK",
@@ -58,7 +63,8 @@ contract (
                 LINKInst.address,
                 MAX_BYTES32,
                 ONE_TOKEN,
-                VALID_AMOUNT
+                VALID_AMOUNT,
+                sBombInst.address
             );
 
             await TimeBombInst.grantRole(await TimeBombInst.DEFAULT_ADMIN_ROLE(), admin);
@@ -71,7 +77,8 @@ contract (
         it('One user TimeBomb test', async () => {
 
             for (let i = 0; i < (await TimeBombInst.txInit()).toNumber(); i++) {
-                await TimeBombInst.register(user1, {from: register, value: VALID_AMOUNT});
+                await sBombInst.mint(TimeBombInst.address, VALID_AMOUNT);
+                await TimeBombInst.register(user1, VALID_AMOUNT, {from: register, value: VALID_AMOUNT});
             }
             expect(await TimeBombInst.currentQueue()).bignumber.equal(ONE);
             expect(await TimeBombInst.totalFinished()).bignumber.equal(ONE);
@@ -82,13 +89,15 @@ contract (
         it('Zero users TimeBomb test', async () => {
 
             for (let i = 0; i < (await TimeBombInst.txInit()).toNumber(); i++) {
-                await TimeBombInst.register(user2, {from: register, value: VALID_AMOUNT.sub(ONE)});
+                await sBombInst.mint(TimeBombInst.address, VALID_AMOUNT);
+                await TimeBombInst.register(user2, VALID_AMOUNT, {from: register, value: VALID_AMOUNT.sub(ONE)});
             }
             expect(await TimeBombInst.currentQueue()).bignumber.equal(ONE);
             expect(await TimeBombInst.totalFinished()).bignumber.equal(ONE);
 
             for (let i = 0; i < (await TimeBombInst.txInit()).toNumber(); i++) {
-                await TimeBombInst.register(user2, {from: register, value: VALID_AMOUNT});
+                await sBombInst.mint(TimeBombInst.address, VALID_AMOUNT);
+                await TimeBombInst.register(user2, VALID_AMOUNT, {from: register, value: VALID_AMOUNT});
             }
             expect(await TimeBombInst.currentQueue()).bignumber.equal(TWO);
             expect(await TimeBombInst.totalFinished()).bignumber.equal(TWO);
@@ -105,15 +114,18 @@ contract (
             expect(await TimeBombInst.txInit()).bignumber.equal(THREE);
 
             for (let i = 0; i < OLD_TX.toNumber(); i++) {
-                await TimeBombInst.register(throwawayuser, {from: register, value: ZERO});
+                await TimeBombInst.register(throwawayuser, ZERO, {from: register, value: ZERO});
             }
 
             expect(await TimeBombInst.currentQueue()).bignumber.equal(ONE);
             expect(await TimeBombInst.totalFinished()).bignumber.equal(ONE);
 
-            await TimeBombInst.register(user3, {from: register, value: VALID_AMOUNT});
-            await TimeBombInst.register(user4, {from: register, value: VALID_AMOUNT});
-            await TimeBombInst.register(user5, {from: register, value: VALID_AMOUNT});
+            await sBombInst.mint(TimeBombInst.address, VALID_AMOUNT);
+            await sBombInst.mint(TimeBombInst.address, VALID_AMOUNT);
+            await sBombInst.mint(TimeBombInst.address, VALID_AMOUNT);
+            await TimeBombInst.register(user3, VALID_AMOUNT, {from: register, value: VALID_AMOUNT});
+            await TimeBombInst.register(user4, VALID_AMOUNT, {from: register, value: VALID_AMOUNT});
+            await TimeBombInst.register(user5, VALID_AMOUNT, {from: register, value: VALID_AMOUNT});
 
             expect(await TimeBombInst.currentQueue()).bignumber.equal(TWO);
             expect(await TimeBombInst.totalFinished()).bignumber.equal(TWO);
@@ -130,21 +142,27 @@ contract (
             await TimeBombInst.setValidAmount(ONE_TOKEN.div(TEN).div(TEN).div(TEN), {from: admin});
             await TimeBombInst.setTxInit(TWO, {from: admin});
 
-            await TimeBombInst.register(user1, {from: register, value: VALID_AMOUNT});
-            await TimeBombInst.register(user2, {from: register, value: VALID_AMOUNT});
+            await sBombInst.mint(TimeBombInst.address, VALID_AMOUNT);
+            await sBombInst.mint(TimeBombInst.address, VALID_AMOUNT);
+            await TimeBombInst.register(user1, VALID_AMOUNT, {from: register, value: VALID_AMOUNT});
+            await TimeBombInst.register(user2, VALID_AMOUNT, {from: register, value: VALID_AMOUNT});
             for (let i = 0; i < OLD_TX.toNumber() - 2; i++) {
-                await TimeBombInst.register(user1, {from: register, value: ZERO});
+                await TimeBombInst.register(user1, ZERO, {from: register, value: ZERO});
             }
 
             expect(await TimeBombInst.currentQueue()).bignumber.equal(ONE);
             expect(await TimeBombInst.totalFinished()).bignumber.equal(ONE);
 
-            await TimeBombInst.register(user1, {from: register, value: ZERO});
-            await TimeBombInst.register(user1, {from: register, value: ZERO});
-            await TimeBombInst.register(user1, {from: register, value: VALID_AMOUNT});
-            await TimeBombInst.register(user1, {from: register, value: VALID_AMOUNT});
-            await TimeBombInst.register(user3, {from: register, value: VALID_AMOUNT});
-            await TimeBombInst.register(user4, {from: register, value: VALID_AMOUNT});
+            await TimeBombInst.register(user1, ZERO, {from: register, value: ZERO});
+            await TimeBombInst.register(user1, ZERO, {from: register, value: ZERO});
+            await sBombInst.mint(TimeBombInst.address, VALID_AMOUNT);
+            await sBombInst.mint(TimeBombInst.address, VALID_AMOUNT);
+            await TimeBombInst.register(user1, VALID_AMOUNT, {from: register, value: VALID_AMOUNT});
+            await TimeBombInst.register(user1, VALID_AMOUNT, {from: register, value: VALID_AMOUNT});
+            await sBombInst.mint(TimeBombInst.address, VALID_AMOUNT);
+            await sBombInst.mint(TimeBombInst.address, VALID_AMOUNT);
+            await TimeBombInst.register(user3, VALID_AMOUNT, {from: register, value: VALID_AMOUNT});
+            await TimeBombInst.register(user4, VALID_AMOUNT, {from: register, value: VALID_AMOUNT});
 
             expect(await TimeBombInst.currentQueue()).bignumber.equal(FOUR);
             expect(await TimeBombInst.totalFinished()).bignumber.equal(FOUR);
@@ -181,7 +199,8 @@ contract (
                 LINKInst.address,
                 MAX_BYTES32,
                 ONE_TOKEN,
-                VALID_AMOUNT
+                VALID_AMOUNT,
+                sBombInst.address
             );
 
             await TimeBombInst.grantRole(await TimeBombInst.DEFAULT_ADMIN_ROLE(), admin);
@@ -190,9 +209,11 @@ contract (
 
             await LINKInst.mint(TimeBombInst.address, ONE_TOKEN.mul(new BN(100)));
 
-            await TimeBombInst.register(user1, {from: register, value: VALID_AMOUNT});
+            await sBombInst.mint(TimeBombInst.address, VALID_AMOUNT);
+            await TimeBombInst.register(user1, VALID_AMOUNT, {from: register, value: VALID_AMOUNT});
             for (let i = 0; i < (await TimeBombInst.txInit()).toNumber() - 1; i++) {
-                await TimeBombInst.register(user2, {from: register, value: VALID_AMOUNT});
+                await sBombInst.mint(TimeBombInst.address, VALID_AMOUNT);
+                await TimeBombInst.register(user2, VALID_AMOUNT, {from: register, value: VALID_AMOUNT});
             }
 
             expect(await TimeBombInst.currentQueue()).bignumber.equal(TWO.pow(new BN(256)).sub(ONE));
@@ -205,9 +226,11 @@ contract (
 
         it('Gas test #2', async () => {
 
-            await TimeBombInst.register(user1, {from: register, value: VALID_AMOUNT});
+            await sBombInst.mint(TimeBombInst.address, VALID_AMOUNT);
+            await TimeBombInst.register(user1, VALID_AMOUNT, {from: register, value: VALID_AMOUNT});
             for (let i = 0; i < (await TimeBombInst.txInit()).toNumber() - 1; i++) {
-                await TimeBombInst.register(user2, {from: register, value: VALID_AMOUNT});
+                await sBombInst.mint(TimeBombInst.address, VALID_AMOUNT);
+                await TimeBombInst.register(user2, VALID_AMOUNT, {from: register, value: VALID_AMOUNT});
             }
 
             expect(await TimeBombInst.currentQueue()).bignumber.equal(ONE);
@@ -227,7 +250,8 @@ contract (
                 LINKInst.address,
                 MAX_BYTES32,
                 ONE_TOKEN,
-                VALID_AMOUNT
+                VALID_AMOUNT,
+                sBombInst.address
             );
 
             await TimeBombInst.grantRole(await TimeBombInst.DEFAULT_ADMIN_ROLE(), admin);
@@ -237,8 +261,10 @@ contract (
             await LINKInst.mint(TimeBombInst.address, ONE_TOKEN.mul(new BN(100)));
 
             for (let i = 0; i < 50; i++) {
-                await TimeBombInst.register(user1, {from: register, value: VALID_AMOUNT});
-                await TimeBombInst.register(user2, {from: register, value: VALID_AMOUNT});
+                await sBombInst.mint(TimeBombInst.address, VALID_AMOUNT);
+                await sBombInst.mint(TimeBombInst.address, VALID_AMOUNT);
+                await TimeBombInst.register(user1, VALID_AMOUNT, {from: register, value: VALID_AMOUNT});
+                await TimeBombInst.register(user2, VALID_AMOUNT, {from: register, value: VALID_AMOUNT});
             }
 
             expect(await TimeBombInst.currentQueue()).bignumber.equal(new BN(50));

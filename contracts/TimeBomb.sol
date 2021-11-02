@@ -5,6 +5,7 @@ import "./interfaces/ITimeBomb.sol";
 import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@chainlink/contracts/src/v0.8/VRFConsumerBase.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 contract TimeBomb is ITimeBomb, AccessControl, VRFConsumerBase, ReentrancyGuard {
 
@@ -12,12 +13,14 @@ contract TimeBomb is ITimeBomb, AccessControl, VRFConsumerBase, ReentrancyGuard 
 
     uint256 public txInit = 500;
     uint256 public validAmount;
+    IERC20 public immutable sBomb;
 
     struct queue {
         mapping (address => bool) registered;
         address[] users;
         uint256 txLeft;
-        uint256 amount;
+        uint256 ETHAmount;
+        uint256 sBombAmount;
         address winner;
     }
     mapping (uint256 => queue) public allQueues;
@@ -28,11 +31,12 @@ contract TimeBomb is ITimeBomb, AccessControl, VRFConsumerBase, ReentrancyGuard 
     bytes32 private keyHash;
     uint256 private fee;
 
-    constructor(address _VRFCoordinator, address _LINK_ADDRESS, bytes32 _keyHash, uint256 _fee, uint256 _validAmount) 
+    constructor(address _VRFCoordinator, address _LINK_ADDRESS, bytes32 _keyHash, uint256 _fee, uint256 _validAmount, address _sBomb) 
         VRFConsumerBase(_VRFCoordinator, _LINK_ADDRESS) {
             keyHash = _keyHash;
             fee = _fee;
             validAmount = _validAmount;
+            sBomb = IERC20(_sBomb);
             _setupRole(DEFAULT_ADMIN_ROLE, _msgSender());
             allQueues[0].txLeft = 500;
     }
@@ -45,10 +49,12 @@ contract TimeBomb is ITimeBomb, AccessControl, VRFConsumerBase, ReentrancyGuard 
         txInit = _txInit;
     }
 
-    function register(address account) external payable onlyRole(REGISTER_ROLE) nonReentrant {
+    function register(address account, uint256 _sBombAmount) external payable onlyRole(REGISTER_ROLE) nonReentrant {
         uint256 _currentQueue = currentQueue;
-        uint256 _amount = allQueues[_currentQueue].amount + msg.value;
-        allQueues[_currentQueue].amount = _amount;
+        uint256 _ETHAmount = allQueues[_currentQueue].ETHAmount + msg.value;
+        _sBombAmount += allQueues[_currentQueue].sBombAmount;
+        allQueues[_currentQueue].ETHAmount = _ETHAmount;
+        allQueues[_currentQueue].sBombAmount = _sBombAmount;
         if (msg.value >= validAmount && !allQueues[_currentQueue].registered[account]) {
             allQueues[_currentQueue].users.push(account);
             allQueues[_currentQueue].registered[account] = true;
@@ -60,12 +66,14 @@ contract TimeBomb is ITimeBomb, AccessControl, VRFConsumerBase, ReentrancyGuard 
             currentQueue++;
             if (len == 1) {
                 address winner = allQueues[_currentQueue].users[0];
-                payable(winner).transfer(_amount);
+                payable(winner).transfer(_ETHAmount);
+                sBomb.transfer(winner, _sBombAmount);
                 allQueues[_currentQueue].winner = winner;
                 totalFinished++;
             }
             else if (len == 0) {
-                allQueues[_currentQueue + 1].amount = _amount;
+                allQueues[_currentQueue + 1].ETHAmount = _ETHAmount;
+                allQueues[_currentQueue + 1].sBombAmount = _sBombAmount;
                 totalFinished++;
             }
             else {
@@ -84,7 +92,8 @@ contract TimeBomb is ITimeBomb, AccessControl, VRFConsumerBase, ReentrancyGuard 
     function fulfillRandomness(bytes32 requestId, uint256 randomness) internal override {
         uint256 ID = requireRandomness[requireRandomness.length - 1];
         address winner = allQueues[ID].users[randomness % allQueues[ID].users.length];
-        payable(winner).transfer(allQueues[ID].amount);
+        payable(winner).transfer(allQueues[ID].ETHAmount);
+        sBomb.transfer(winner, allQueues[ID].sBombAmount);
         requireRandomness.pop();
         allQueues[ID].winner = winner;
     }
