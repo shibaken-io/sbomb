@@ -3,6 +3,7 @@ pragma solidity 0.8.9;
 
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "./interfaces/IUniswapV2Router.sol";
 import "./interfaces/IUniswapV2Factory.sol";
 import "./interfaces/IUniswapV2Pair.sol";
@@ -25,7 +26,7 @@ import "./pancake-swap/libraries/TransferHelper.sol";
  * 5% to team wallet
  * 5% to sBOMB-ETH liquidity pool
  */
-contract sBombToken is ERC20, Ownable {
+contract sBombToken is ERC20, Ownable, ReentrancyGuard {
     //buy/sell taxes for deflationary token
     uint256 public constant LOTTERY_BUY_TAX = 5;
     uint256 public constant SHIBAK_BUY_TAX = 1;
@@ -119,7 +120,7 @@ contract sBombToken is ERC20, Ownable {
         uint256 amountTokenMin,
         uint256 amountETHMin,
         address to
-    ) external payable lockTheSwap {
+    ) external payable lockTheSwap nonReentrant {
         require(msg.value > 0 && tokenAmount > 0, "ZERO");
         TransferHelper.safeTransferFrom(
             address(this),
@@ -162,7 +163,7 @@ contract sBombToken is ERC20, Ownable {
         uint256 amountToken0Min,
         uint256 amountToken1Min,
         address to
-    ) external lockTheSwap {
+    ) external lockTheSwap nonReentrant {
         require(tokenAmount0 > 0 && tokenAmount1 > 0, "ZERO");
         require(
             token1 != address(this) && token1 != address(0),
@@ -219,7 +220,7 @@ contract sBombToken is ERC20, Ownable {
         uint256 amountTokenMin,
         uint256 amountETHMin,
         address to
-    ) external lockTheSwap {
+    ) external lockTheSwap nonReentrant {
         require(liquidity > 0, "ZERO");
         address pair = IUniswapV2Factory(dexRouter.factory()).getPair(
             address(this),
@@ -256,7 +257,7 @@ contract sBombToken is ERC20, Ownable {
         uint256 amount0Min,
         uint256 amount1Min,
         address to
-    ) external lockTheSwap {
+    ) external lockTheSwap nonReentrant {
         require(liquidity > 0, "ZERO");
         address pair = IUniswapV2Factory(dexRouter.factory()).getPair(
             address(this),
