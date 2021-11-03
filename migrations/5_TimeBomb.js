@@ -7,7 +7,8 @@ const {
     LINK_ADDRESS,
     KEY_HASH,
     FEE,
-    VALID_AMOUNT
+    VALID_AMOUNT,
+    SBOMB
 } = process.env;
 
 const TimeBomb = artifacts.require("TimeBomb");
@@ -26,7 +27,7 @@ module.exports = async function (deployer, network) {
         return;
 
     await deployer.deploy(
-        TimeBomb, VRF_COORDINATOR, LINK_ADDRESS, KEY_HASH, FEE, VALID_AMOUNT
+        TimeBomb, VRF_COORDINATOR, LINK_ADDRESS, KEY_HASH, FEE, VALID_AMOUNT, SBOMB
     );
     let TimeBombInst = await TimeBomb.deployed();
     console.log("TimeBomb =", TimeBombInst.address);
