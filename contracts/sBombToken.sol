@@ -43,6 +43,21 @@ contract sBombToken is ERC20, Ownable {
 
     bool private inSwap;
 
+    struct BuyFees {
+        uint256 timeBombFee;
+        uint256 timeBombFeeEth;
+        uint256 timeBombFeeSbomb;
+        uint256 burnFee;
+    }
+
+    struct SellFees {
+        uint256 burnFee;
+        uint256 teamFee;
+        uint256 liquidityFee;
+        uint256 liquidityHalf;
+        uint256 liquidityAnotherHalf;
+    }
+
     event BuyTaxTaken(uint256 toTimeBomb, uint256 toBurn, uint256 total);
     event SellTaxTaken(
         uint256 toBurn,
@@ -300,12 +315,19 @@ contract sBombToken is ERC20, Ownable {
         uint256 amount
     ) internal virtual override {
         uint256 totalFee;
+        IUniswapV2Factory factory = IUniswapV2Factory(dexRouter.factory());
 
         if (!inSwap) {
             if (_pairCheck(sender)) {
-                uint256 lotteryFee = (LOTTERY_BUY_TAX * amount) / 100;
+                /* uint256 lotteryFee = (LOTTERY_BUY_TAX * amount) / 100;
                 uint256 burnFee = (SHIBAK_BUY_TAX * amount) / 100;
-                totalFee = lotteryFee + burnFee;
+                totalFee = lotteryFee + burnFee; */
+                BuyFees memory fee;
+                fee.timeBombFee = (LOTTERY_BUY_TAX * amount) / 100;
+                fee.timeBombFeeEth = fee.timeBombFee / 2;
+                fee.timeBombFeeSbomb = fee.timeBombFee - fee.timeBombFeeEth;
+                fee.burnFee = (SHIBAK_BUY_TAX * amount) / 100;
+                totalFee = fee.timeBombFee + fee.burnFee;
 
                 super._transfer(sender, address(this), totalFee);
                 _approve(address(this), address(dexRouter), totalFee);
@@ -313,77 +335,88 @@ contract sBombToken is ERC20, Ownable {
                 //LOTTERY FEE
                 if (
                     sender ==
-                    address(
-                        IUniswapV2Factory(dexRouter.factory()).getPair(
-                            address(this),
-                            dexRouter.WETH()
-                        )
-                    )
+                    address(factory.getPair(address(this), dexRouter.WETH()))
                 ) {
                     address[] memory path = new address[](3);
                     path[0] = address(this);
                     path[1] = SHIBAKEN;
                     path[2] = dexRouter.WETH();
-
                     if (_pairExisting(path)) {
-                        _swapTokensForEth(lotteryFee, address(this), path);
+                        _swapTokensForEth(
+                            fee.timeBombFeeEth,
+                            address(this),
+                            path
+                        );
+                        super._transfer(
+                            address(this),
+                            timeBombContract,
+                            fee.timeBombFeeSbomb
+                        );
                         ITimeBomb(timeBombContract).register{
                             value: address(this).balance
-                        }(recipient);
+                        }(recipient, fee.timeBombFeeSbomb);
                     }
                 } else {
                     address[] memory path = new address[](2);
                     path[0] = address(this);
                     path[1] = dexRouter.WETH();
                     if (_pairExisting(path)) {
-                        _swapTokensForEth(lotteryFee, address(this), path);
+                        _swapTokensForEth(
+                            fee.timeBombFeeEth,
+                            address(this),
+                            path
+                        );
+                        super._transfer(
+                            address(this),
+                            timeBombContract,
+                            fee.timeBombFeeSbomb
+                        );
                         ITimeBomb(timeBombContract).register{
                             value: address(this).balance
-                        }(recipient);
+                        }(recipient, fee.timeBombFeeSbomb);
                     }
                 }
 
                 //BURN FEE
                 if (
-                    sender ==
-                    address(
-                        IUniswapV2Factory(dexRouter.factory()).getPair(
-                            address(this),
-                            SHIBAKEN
-                        )
-                    )
+                    sender == address(factory.getPair(address(this), SHIBAKEN))
                 ) {
                     address[] memory path = new address[](3);
                     path[0] = address(this);
                     path[1] = dexRouter.WETH();
                     path[2] = SHIBAKEN;
                     if (_pairExisting(path))
-                        _swapTokensForTokens(burnFee, DEAD_ADDRESS, path);
+                        _swapTokensForTokens(fee.burnFee, DEAD_ADDRESS, path);
                 } else {
                     address[] memory path = new address[](2);
                     path[0] = address(this);
                     path[1] = SHIBAKEN;
                     if (_pairExisting(path))
-                        _swapTokensForTokens(burnFee, DEAD_ADDRESS, path);
+                        _swapTokensForTokens(fee.burnFee, DEAD_ADDRESS, path);
                 }
 
-                emit BuyTaxTaken(lotteryFee, burnFee, totalFee);
+                emit BuyTaxTaken(fee.timeBombFee, fee.burnFee, totalFee);
             } else if (
                 _pairCheck(recipient) && address(dexRouter) == _msgSender()
             ) {
-                uint256 burnFee = (SHIBAK_SELL_TAX * amount) / 100;
+                /* uint256 burnFee = (SHIBAK_SELL_TAX * amount) / 100;
                 uint256 toTeam = (TEAM_SELL_TAX * amount) / 100;
                 uint256 toLiquidity = (LIQ_SELL_TAX * amount) / 100;
-                totalFee = burnFee + toTeam + toLiquidity;
+                totalFee = burnFee + toTeam + toLiquidity; */
+                SellFees memory fee;
+                fee.burnFee = (SHIBAK_SELL_TAX * amount) / 100;
+                fee.teamFee = (TEAM_SELL_TAX * amount) / 100;
+                fee.liquidityFee = (LIQ_SELL_TAX * amount) / 100;
+                totalFee = fee.burnFee + fee.teamFee + fee.liquidityFee;
 
                 //BURN FEE
                 address[] memory path = new address[](2);
                 path[0] = address(this);
                 path[1] = SHIBAKEN;
                 if (_pairExisting(path)) {
-                    super._transfer(sender, address(this), burnFee);
-                    _approve(address(this), address(dexRouter), burnFee);
-                    _swapTokensForTokens(burnFee, DEAD_ADDRESS, path);
+                    super._transfer(sender, address(this), fee.burnFee);
+                    _approve(address(this), address(dexRouter), fee.burnFee);
+                    _swapTokensForTokens(fee.burnFee, DEAD_ADDRESS, path);
                 }
 
                 //TEAM & LIQUIDITY FEE
@@ -392,29 +425,26 @@ contract sBombToken is ERC20, Ownable {
                     super._transfer(
                         sender,
                         address(this),
-                        toTeam + toLiquidity
+                        fee.teamFee + fee.liquidityFee
                     );
                     _approve(
                         address(this),
                         address(dexRouter),
-                        toTeam + toLiquidity
+                        fee.teamFee + fee.liquidityFee
                     );
-                    _swapTokensForEth(toTeam, teamWallet, path);
+                    _swapTokensForEth(fee.teamFee, teamWallet, path);
 
                     IUniswapV2Pair pair = IUniswapV2Pair(
-                        IUniswapV2Factory(dexRouter.factory()).getPair(
-                            path[0],
-                            path[1]
-                        )
+                        factory.getPair(path[0], path[1])
                     );
                     (uint256 reserve0, uint256 reserve1, ) = pair.getReserves();
                     uint256 half = getOptimalAmountToSell(
                         int256(
                             address(this) == pair.token0() ? reserve0 : reserve1
                         ),
-                        int256(toLiquidity)
+                        int256(fee.liquidityFee)
                     );
-                    uint256 anotherHalf = toLiquidity - half;
+                    uint256 anotherHalf = fee.liquidityFee - half;
                     _swapTokensForEth(half, address(this), path);
                     inSwap = true;
                     (uint256 tokenAmount, , ) = dexRouter.addLiquidityETH{
@@ -436,7 +466,12 @@ contract sBombToken is ERC20, Ownable {
                     inSwap = false;
                 }
 
-                emit SellTaxTaken(burnFee, toTeam, toLiquidity, totalFee);
+                emit SellTaxTaken(
+                    fee.burnFee,
+                    fee.teamFee,
+                    fee.liquidityFee,
+                    totalFee
+                );
             }
         }
 

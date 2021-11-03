@@ -1,7 +1,6 @@
 const { expect } = require('chai');
-const { BN, expectEvent, expectRevert, makeInterfaceId, time } = require('@openzeppelin/test-helpers');
+const { BN, expectEvent, expectRevert, time } = require('@openzeppelin/test-helpers');
 const { web3 } = require('@openzeppelin/test-helpers/src/setup');
-const { Contract } = require('web3-eth-contract');
 
 //pancake artifacts
 const WETH = artifacts.require('WETH');
@@ -92,7 +91,7 @@ contract(
             sBombToken = await SBombToken.new(shibakenToken.address, pancakeRouterInstant.address);
             console.log("SBOMB: ", sBombToken.address);
             
-            timeBombContract = await TimeBomb.new(deployer, testToken.address, "0x7269746100000000000000000000000000000000000000000000000000000000", ONE, ONE);
+            timeBombContract = await TimeBomb.new(deployer, testToken.address, "0x7269746100000000000000000000000000000000000000000000000000000000", ONE, ONE, sBombToken.address);
             console.log("LOTTERY: ", timeBombContract.address);
             const REGISTER_ROLE = await timeBombContract.REGISTER_ROLE.call();
             await timeBombContract.grantRole(REGISTER_ROLE, sBombToken.address);
@@ -185,10 +184,12 @@ contract(
             assert.equal(await web3.eth.getBalance(sBombToken.address), 0);
             let amountEthToSBomb = await pancakeRouterInstant.getAmountsOut(ONE_HALF_TOKEN, [wethInst.address, sBombToken.address]);
             let amountSBombToSibaken = await pancakeRouterInstant.getAmountsOut(amountEthToSBomb[1].div(ONE_HUNDRED), [sBombToken.address, shibakenToken.address]);
-            let amountSBombToShibakenToEth = await pancakeRouterInstant.getAmountsOut(amountEthToSBomb[1].mul(FIVE).div(ONE_HUNDRED), [sBombToken.address, shibakenToken.address, wethInst.address]);
+            let amountSBombToShibakenToEth = await pancakeRouterInstant.getAmountsOut(amountEthToSBomb[1].mul(FIVE).div(ONE_HUNDRED).div(TWO), [sBombToken.address, shibakenToken.address, wethInst.address]);
+            let amountSbombToLottery = amountEthToSBomb[1].mul(FIVE).div(ONE_HUNDRED).sub(amountEthToSBomb[1].mul(FIVE).div(ONE_HUNDRED).div(TWO));
 
             const shibakenTokenBalanceBefore = await shibakenToken.balanceOf(DEAD_ADDRESS);
             const lotteryEthBalanceBefore = await web3.eth.getBalance(timeBombContract.address);
+            const lotterySbombBalanceBefore = await sBombToken.balanceOf(timeBombContract.address);
             let now = await time.latest();
             await pancakeRouterInstant.swapExactETHForTokens(
                 ZERO,
@@ -202,11 +203,18 @@ contract(
             );
             const lotteryEthBalanceAfter = await web3.eth.getBalance(timeBombContract.address);
             const shibakenTokenBalanceAfter = await shibakenToken.balanceOf(DEAD_ADDRESS);
+            const lotterySbombBalanceAfter = await sBombToken.balanceOf(timeBombContract.address);
 
             let difference = await web3.utils.fromWei((lotteryEthBalanceAfter - lotteryEthBalanceBefore).toString(), 'ether');
             difference = parseFloat(difference).toFixed(2);
             let finalAmount = await web3.utils.fromWei(amountSBombToShibakenToEth[2], 'ether');
             finalAmount = parseFloat(finalAmount).toFixed(2);
+            assert.equal(difference, finalAmount);
+
+            difference = await web3.utils.fromWei(lotterySbombBalanceAfter.sub(lotterySbombBalanceBefore), 'ether');
+            difference = parseFloat(difference).toFixed(18);
+            finalAmount = await web3.utils.fromWei(amountSbombToLottery, 'ether');
+            finalAmount = parseFloat(finalAmount).toFixed(18);
             assert.equal(difference, finalAmount);
 
             difference = await web3.utils.fromWei(shibakenTokenBalanceAfter.sub(shibakenTokenBalanceBefore), 'ether');
@@ -220,8 +228,11 @@ contract(
             assert.equal(await web3.eth.getBalance(sBombToken.address), 0);
             const lotteryEthBalanceBefore = await web3.eth.getBalance(timeBombContract.address);
             const shibakenBalanceBefore = await shibakenToken.balanceOf(DEAD_ADDRESS);
+            const sBombLotteryBalanceBefore = await sBombToken.balanceOf(timeBombContract.address);
+
             let amounts = await pancakeRouterInstant.getAmountsOut(ONE_HALF_TOKEN, [testToken.address, sBombToken.address]);
-            let expectedLotteryFee = await pancakeRouterInstant.getAmountsOut(amounts[1].mul(FIVE).div(ONE_HUNDRED), [sBombToken.address, wethInst.address]);
+            let expectedLotteryFee = await pancakeRouterInstant.getAmountsOut(amounts[1].mul(FIVE).div(ONE_HUNDRED).div(TWO), [sBombToken.address, wethInst.address]);
+            let expectedLotteryFeeSbomb = await amounts[1].mul(FIVE).div(ONE_HUNDRED).sub(amounts[1].mul(FIVE).div(ONE_HUNDRED).div(TWO));
             let expectedBurnFee = await pancakeRouterInstant.getAmountsOut(amounts[1].div(ONE_HUNDRED), [sBombToken.address, shibakenToken.address]);
             const sBombBalanceBefore = await sBombToken.balanceOf(user1);
             await testToken.approve(pancakeRouterInstant.address, ONE_HALF_TOKEN, {from:user1});
@@ -240,13 +251,23 @@ contract(
             let finalAmount = await web3.utils.fromWei(amounts[1].mul(new BN(94)).div(ONE_HUNDRED), 'ether');
             finalAmount = parseFloat(finalAmount).toFixed(17);
             assert.equal(finalAmount, difference);
+
             const lotteryEthBalanceAfter = await web3.eth.getBalance(timeBombContract.address);
+            const sBombLotteryBalanceAfter = await sBombToken.balanceOf(timeBombContract.address);
             let lotteryFee = new BN(lotteryEthBalanceAfter - lotteryEthBalanceBefore);
             difference = await web3.utils.fromWei(lotteryFee, 'ether');
             difference = parseFloat(difference).toFixed(17);
             finalAmount = await web3.utils.fromWei(expectedLotteryFee[1], 'ether');
             finalAmount = parseFloat(finalAmount).toFixed(17);
             assert.equal(finalAmount, difference);
+
+            lotteryFee = sBombLotteryBalanceAfter.sub(sBombLotteryBalanceBefore);
+            difference = await web3.utils.fromWei(lotteryFee, 'ether');
+            difference = parseFloat(difference).toFixed(18);
+            finalAmount = await web3.utils.fromWei(expectedLotteryFeeSbomb, 'ether');
+            finalAmount = parseFloat(finalAmount).toFixed(18);
+            assert.equal(finalAmount, difference);
+
             const shibakenBalanceAfter = await shibakenToken.balanceOf(DEAD_ADDRESS);
             const burnFee = shibakenBalanceAfter.sub(shibakenBalanceBefore);
             expect(burnFee).bignumber.equal(expectedBurnFee[1].mul(new BN(98)).div(ONE_HUNDRED).add(TWO)); //can not round currently cause of zero decimals
