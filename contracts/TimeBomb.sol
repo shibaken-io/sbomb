@@ -59,24 +59,25 @@ contract TimeBomb is ITimeBomb, AccessControl, VRFConsumerBase, ReentrancyGuard 
 
     function register(address account, uint256 _sBombAmount) external payable onlyRole(REGISTER_ROLE) nonReentrant {
         uint256 _currentQueue = currentQueue;
-        uint256 _ETHAmount = allQueues[_currentQueue].ETHAmount + msg.value;
-        _sBombAmount += allQueues[_currentQueue].sBombAmount;
-        allQueues[_currentQueue].ETHAmount = _ETHAmount;
-        allQueues[_currentQueue].sBombAmount = _sBombAmount;
-        if (msg.value >= validAmount && !allQueues[_currentQueue].registered[account]) {
-            allQueues[_currentQueue].users.push(account);
-            allQueues[_currentQueue].registered[account] = true;
+        Queue storage queue = allQueues[_currentQueue];
+        uint256 _ETHAmount = queue.ETHAmount + msg.value;
+        _sBombAmount += queue.sBombAmount;
+        queue.ETHAmount = _ETHAmount;
+        queue.sBombAmount = _sBombAmount;
+        if (msg.value >= validAmount && !queue.registered[account]) {
+            queue.users.push(account);
+            queue.registered[account] = true;
         }
-        uint256 len = allQueues[_currentQueue].users.length;
-        uint256 _txLeft = allQueues[_currentQueue].txLeft;
+        uint256 len = queue.users.length;
+        uint256 _txLeft = queue.txLeft;
         if (_txLeft == 1) {
             allQueues[_currentQueue + 1].txLeft = txInit;
             currentQueue++;
             if (len == 1) {
-                address winner = allQueues[_currentQueue].users[0];
+                address winner = queue.users[0];
                 payable(winner).transfer(_ETHAmount);
                 sBomb.transfer(winner, _sBombAmount);
-                allQueues[_currentQueue].winner = winner;
+                queue.winner = winner;
                 totalFinished++;
             }
             else if (len == 0) {
@@ -89,7 +90,7 @@ contract TimeBomb is ITimeBomb, AccessControl, VRFConsumerBase, ReentrancyGuard 
             }
         }
         else {
-            allQueues[_currentQueue].txLeft--;
+            queue.txLeft--;
         }
         if (currentQueue > totalFinished && LINK.balanceOf(address(this)) >= fee) {
             requestRandomness(keyHash, fee);
