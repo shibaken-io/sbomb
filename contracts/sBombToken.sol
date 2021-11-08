@@ -28,7 +28,7 @@ import "./pancake-swap/libraries/TransferHelper.sol";
  */
 contract sBombToken is ERC20, Ownable, ReentrancyGuard {
     //buy/sell taxes for deflationary token
-    uint256 public constant LOTTERY_BUY_TAX = 5;
+    uint256 public constant TIMEBOMB_BUY_TAX = 5;
     uint256 public constant SHIBAK_BUY_TAX = 1;
     uint256 public constant SHIBAK_SELL_TAX = 10;
     uint256 public constant TEAM_SELL_TAX = 5;
@@ -85,8 +85,8 @@ contract sBombToken is ERC20, Ownable, ReentrancyGuard {
 
     receive() external payable {}
 
-    /** @dev Owner function for setting lottery contarct address
-     * @param _timeBomb lottery contract address
+    /** @dev Owner function for setting TimeBomb contarct address
+     * @param _timeBomb TimeBomb contract address
      */
     function setTimeBombContarct(address _timeBomb) external onlyOwner {
         require(_timeBomb != address(0));
@@ -320,11 +320,8 @@ contract sBombToken is ERC20, Ownable, ReentrancyGuard {
 
         if (!inSwap) {
             if (_pairCheck(sender)) {
-                /* uint256 lotteryFee = (LOTTERY_BUY_TAX * amount) / 100;
-                uint256 burnFee = (SHIBAK_BUY_TAX * amount) / 100;
-                totalFee = lotteryFee + burnFee; */
                 BuyFees memory fee;
-                fee.timeBombFee = (LOTTERY_BUY_TAX * amount) / 100;
+                fee.timeBombFee = (TIMEBOMB_BUY_TAX * amount) / 100;
                 fee.timeBombFeeEth = fee.timeBombFee / 2;
                 fee.timeBombFeeSbomb = fee.timeBombFee - fee.timeBombFeeEth;
                 fee.burnFee = (SHIBAK_BUY_TAX * amount) / 100;
@@ -333,7 +330,7 @@ contract sBombToken is ERC20, Ownable, ReentrancyGuard {
                 super._transfer(sender, address(this), totalFee);
                 _approve(address(this), address(dexRouter), totalFee);
 
-                //LOTTERY FEE
+                //TIMEBOMB FEE
                 if (
                     sender ==
                     address(factory.getPair(address(this), dexRouter.WETH()))
