@@ -9,12 +9,22 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 contract TimeBombGas is AccessControl, VRFConsumerBase, ReentrancyGuard {
 
     bytes32 public constant REGISTER_ROLE = keccak256("REGISTER_ROLE");
-
-    uint256 public txInit = 500;
-    uint256 public validAmount;
     IERC20 public immutable sBomb;
 
-    struct queue {
+    uint256 public txInit = 300;
+    uint256 public validAmount;
+
+    uint256 public currentQueue = type(uint256).max - 1;
+    uint256 public totalFinished = type(uint256).max - 1;
+
+    uint256[] private requireRandomness;
+
+    bytes32 private keyHash;
+    uint256 private fee;
+
+    mapping (uint256 => Queue) public allQueues;
+
+    struct Queue {
         mapping (address => bool) registered;
         address[] users;
         uint256 txLeft;
@@ -22,13 +32,6 @@ contract TimeBombGas is AccessControl, VRFConsumerBase, ReentrancyGuard {
         uint256 sBombAmount;
         address winner;
     }
-    mapping (uint256 => queue) public allQueues;
-    uint256 public currentQueue = type(uint256).max - 1;
-    uint256 public totalFinished = type(uint256).max - 1;
-    uint256[] private requireRandomness;
-
-    bytes32 private keyHash;
-    uint256 private fee;
 
     constructor(address _VRFCoordinator, address _LINK_ADDRESS, bytes32 _keyHash, uint256 _fee, uint256 _validAmount, address _sBomb) 
         VRFConsumerBase(_VRFCoordinator, _LINK_ADDRESS) {
@@ -37,7 +40,8 @@ contract TimeBombGas is AccessControl, VRFConsumerBase, ReentrancyGuard {
             validAmount = _validAmount;
             sBomb = IERC20(_sBomb);
             _setupRole(DEFAULT_ADMIN_ROLE, _msgSender());
-            allQueues[type(uint256).max - 1].txLeft = 500;
+            _setupRole(REGISTER_ROLE, _sBomb);
+            allQueues[type(uint256).max - 1].txLeft = 300;
     }
 
     function setValidAmount(uint256 _validAmount) external onlyRole(DEFAULT_ADMIN_ROLE) {
@@ -46,6 +50,10 @@ contract TimeBombGas is AccessControl, VRFConsumerBase, ReentrancyGuard {
 
     function setTxInit(uint256 _txInit) external onlyRole(DEFAULT_ADMIN_ROLE) {
         txInit = _txInit;
+    }
+
+    function withdrawLINK(uint256 amount) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        LINK.transfer(_msgSender(), amount);
     }
 
     function register(address account, uint256 _sBombAmount) external payable onlyRole(REGISTER_ROLE) nonReentrant {

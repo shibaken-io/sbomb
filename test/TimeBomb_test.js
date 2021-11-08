@@ -211,8 +211,8 @@ contract (
 
             await sBombInst.mint(TimeBombInst.address, VALID_AMOUNT);
             await TimeBombInst.register(user1, VALID_AMOUNT, {from: register, value: VALID_AMOUNT});
+            await sBombInst.mint(TimeBombInst.address, VALID_AMOUNT.mul(await TimeBombInst.txInit()));
             for (let i = 0; i < (await TimeBombInst.txInit()).toNumber() - 1; i++) {
-                await sBombInst.mint(TimeBombInst.address, VALID_AMOUNT);
                 await TimeBombInst.register(user2, VALID_AMOUNT, {from: register, value: VALID_AMOUNT});
             }
 
