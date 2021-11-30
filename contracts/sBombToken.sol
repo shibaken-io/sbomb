@@ -104,8 +104,7 @@ contract sBombToken is ERC20, Ownable, ReentrancyGuard {
         uint256 initialSupply = 10**8 * 10**uint256(decimals());
         _mint(_owner, initialSupply);
 
-        if(_msgSender() != _owner)
-            transferOwnership(_owner);
+        if (_msgSender() != _owner) transferOwnership(_owner);
     }
 
     receive() external payable {}
@@ -147,8 +146,15 @@ contract sBombToken is ERC20, Ownable, ReentrancyGuard {
     }
 
     /** @dev Change isExcludedFromFee status
+     *  @param _account an address of account to change
      */
     function changeExcludedFromFee(address _account) external onlyOwner {
+        if (isExcludedFromFee[_account])
+            totalDistributed += super.balanceOf(_account);
+        else {
+            if (getReward(_account) > 0) withdraw(_account);
+            totalDistributed -= super.balanceOf(_account);
+        }
         isExcludedFromFee[_account] = !isExcludedFromFee[_account];
     }
 
@@ -332,7 +338,9 @@ contract sBombToken is ERC20, Ownable, ReentrancyGuard {
     function withdraw(address account) public {
         uint256 amount = getReward(account);
         require(
-            super.balanceOf(account) > 0 && !isExcludedFromFee[account] && amount > 0,
+            super.balanceOf(account) > 0 &&
+                !isExcludedFromFee[account] &&
+                amount > 0,
             "sBomb: not holder"
         );
         //uint256 amount = getReward(account);
@@ -356,9 +364,15 @@ contract sBombToken is ERC20, Ownable, ReentrancyGuard {
     /**
      * @dev overrided balanceOf; if account is excluded from fee, shows balance from _balances[account], else shows balance from _balances[account] plus rewards from SELL (2% * your shares).
      */
-    function balanceOf(address account) public view virtual override returns (uint256) {
+    function balanceOf(address account)
+        public
+        view
+        virtual
+        override
+        returns (uint256)
+    {
         uint256 internalBalance = super.balanceOf(account);
-        if(isExcludedFromFee[account]) return internalBalance;
+        if (isExcludedFromFee[account]) return internalBalance;
         else return internalBalance + getReward(account);
     }
 
@@ -401,28 +415,25 @@ contract sBombToken is ERC20, Ownable, ReentrancyGuard {
         bool pairSender = _pairCheck(sender);
         bool pairRecipient = _pairCheck(recipient);
 
-        if(!isExcludedFromFee[sender]){
-            if(pairSender) {
+        if (!isExcludedFromFee[sender]) {
+            if (pairSender) {
                 isExcludedFromFee[sender] = true;
-            }
-            else {
-                if(getReward(sender) > 0)
-                    withdraw(sender);
+            } else {
+                if (getReward(sender) > 0) withdraw(sender);
 
                 holdersReward[sender] =
                     (globalCoefficient * (super.balanceOf(sender) - amount)) /
                     MULTIPLIER;
             }
         }
-        if(!isExcludedFromFee[recipient]){
-            if(pairRecipient) 
-                isExcludedFromFee[recipient] = true;
+        if (!isExcludedFromFee[recipient]) {
+            if (pairRecipient) isExcludedFromFee[recipient] = true;
             else {
-                if(getReward(recipient) > 0)
-                    withdraw(recipient);
+                if (getReward(recipient) > 0) withdraw(recipient);
 
                 holdersReward[recipient] =
-                    (globalCoefficient * (super.balanceOf(recipient) + amount)) /
+                    (globalCoefficient *
+                        (super.balanceOf(recipient) + amount)) /
                     MULTIPLIER;
             }
         }
@@ -460,8 +471,10 @@ contract sBombToken is ERC20, Ownable, ReentrancyGuard {
                             address(this),
                             path
                         );
-                        if(charityWallet != address(0)){
-                            fee.charity = fee.timeBombFeeSbomb * CHARITY_TAX / 100;
+                        if (charityWallet != address(0)) {
+                            fee.charity =
+                                (fee.timeBombFeeSbomb * CHARITY_TAX) /
+                                100;
                             super._transfer(
                                 address(this),
                                 charityWallet,
@@ -489,8 +502,10 @@ contract sBombToken is ERC20, Ownable, ReentrancyGuard {
                             address(this),
                             path
                         );
-                        if(charityWallet != address(0)){
-                            fee.charity = fee.timeBombFeeSbomb * CHARITY_TAX / 100;
+                        if (charityWallet != address(0)) {
+                            fee.charity =
+                                (fee.timeBombFeeSbomb * CHARITY_TAX) /
+                                100;
                             super._transfer(
                                 address(this),
                                 charityWallet,
@@ -534,18 +549,17 @@ contract sBombToken is ERC20, Ownable, ReentrancyGuard {
                     }
                 }
 
-                if(!isExcludedFromFee[recipient]){
+                if (!isExcludedFromFee[recipient]) {
                     holdersReward[recipient] =
-                        (globalCoefficient * (super.balanceOf(recipient) + amount - totalFee)) /
+                        (globalCoefficient *
+                            (super.balanceOf(recipient) + amount - totalFee)) /
                         MULTIPLIER;
 
                     totalDistributed -= totalFee;
                 }
 
                 emit BuyTaxTaken(fee.timeBombFee, fee.burnFee, totalFee);
-            } else if (
-                pairRecipient && address(dexRouter) == _msgSender()
-            ) {
+            } else if (pairRecipient && address(dexRouter) == _msgSender()) {
                 SellFees memory fee;
                 fee.burnFee = (SHIBAK_SELL_TAX * amount) / 100;
                 fee.teamFee = (TEAM_SELL_TAX * amount) / 100;
@@ -615,7 +629,7 @@ contract sBombToken is ERC20, Ownable, ReentrancyGuard {
                 } else totalFee -= fee.liquidityFee;
 
                 //HOLDERS FEE
-                if(totalDistributed > 0){
+                if (totalDistributed > 0) {
                     super._transfer(sender, address(this), fee.holdersFee);
                     globalCoefficient +=
                         (fee.holdersFee * MULTIPLIER) /
