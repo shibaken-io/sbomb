@@ -22,32 +22,44 @@ import "./pancake-swap/libraries/TransferHelper.sol";
  * 1% SHIBAKEN buy and burn
  *
  * Sell tax: 20%, =
- * 10% SHIBAKEN buy and burn
+ * 8% SHIBAKEN buy and burn
  * 5% to team wallet
  * 5% to sBOMB-ETH liquidity pool
+ * 2% to holders
  */
 contract sBombToken is ERC20, Ownable, ReentrancyGuard {
     //buy/sell taxes for deflationary token
     uint256 public constant TIMEBOMB_BUY_TAX = 5;
+    uint256 public constant CHARITY_TAX = 10;
     uint256 public constant SHIBAK_BUY_TAX = 1;
-    uint256 public constant SHIBAK_SELL_TAX = 10;
+    uint256 public constant SHIBAK_SELL_TAX = 8;
     uint256 public constant TEAM_SELL_TAX = 5;
     uint256 public constant LIQ_SELL_TAX = 5;
+    uint256 public constant HOLDERS_SELL_TAX = 2;
     address public immutable SHIBAKEN;
 
     address public teamWallet;
+    address public charityWallet;
     address public timeBombContract;
     IUniswapV2Router public dexRouter;
 
+    uint256 public totalDistributed;
+
     address private constant DEAD_ADDRESS =
         address(0x000000000000000000000000000000000000dEaD);
+    uint256 private constant MULTIPLIER = 10**20;
 
     bool private inSwap;
+    uint256 private globalCoefficient;
+
+    mapping(address => bool) public isExcludedFromFee;
+    mapping(address => uint256) private holdersReward;
 
     struct BuyFees {
         uint256 timeBombFee;
         uint256 timeBombFeeEth;
         uint256 timeBombFeeSbomb;
+        uint256 charity;
         uint256 burnFee;
     }
 
@@ -57,6 +69,7 @@ contract sBombToken is ERC20, Ownable, ReentrancyGuard {
         uint256 liquidityFee;
         uint256 liquidityHalf;
         uint256 liquidityAnotherHalf;
+        uint256 holdersFee;
     }
 
     event BuyTaxTaken(uint256 toTimeBomb, uint256 toBurn, uint256 total);
@@ -64,6 +77,7 @@ contract sBombToken is ERC20, Ownable, ReentrancyGuard {
         uint256 toBurn,
         uint256 toTeam,
         uint256 toLiquidity,
+        uint256 toHolders,
         uint256 total
     );
 
@@ -73,14 +87,25 @@ contract sBombToken is ERC20, Ownable, ReentrancyGuard {
         inSwap = false;
     }
 
-    constructor(address _shibakenToken, IUniswapV2Router _dex)
-        ERC20("sBOMB", "SBOMB")
-    {
+    constructor(
+        address _shibakenToken,
+        IUniswapV2Router _dex,
+        address _owner
+    ) ERC20("sBOMB", "SBOMB") {
         SHIBAKEN = _shibakenToken;
         dexRouter = _dex;
 
+        isExcludedFromFee[DEAD_ADDRESS] = true;
+        isExcludedFromFee[_owner] = true;
+        isExcludedFromFee[address(_dex)] = true;
+        isExcludedFromFee[address(this)] = true;
+        isExcludedFromFee[address(0)] = true;
+
         uint256 initialSupply = 10**8 * 10**uint256(decimals());
-        _mint(_msgSender(), initialSupply);
+        _mint(_owner, initialSupply);
+
+        if(_msgSender() != _owner)
+            transferOwnership(_owner);
     }
 
     receive() external payable {}
@@ -90,6 +115,7 @@ contract sBombToken is ERC20, Ownable, ReentrancyGuard {
      */
     function setTimeBombContarct(address _timeBomb) external onlyOwner {
         require(_timeBomb != address(0));
+        isExcludedFromFee[_timeBomb] = true;
         timeBombContract = _timeBomb;
     }
 
@@ -98,7 +124,17 @@ contract sBombToken is ERC20, Ownable, ReentrancyGuard {
      */
     function changeTeamWallet(address _wallet) external onlyOwner {
         require(_wallet != address(0));
+        isExcludedFromFee[_wallet] = true;
         teamWallet = _wallet;
+    }
+
+    /** @dev Owner function for setting team wallet address
+     * @param _wallet team wallet address
+     */
+    function changeCharityWallet(address _wallet) external onlyOwner {
+        require(_wallet != address(0));
+        isExcludedFromFee[_wallet] = true;
+        charityWallet = _wallet;
     }
 
     /** @dev Owner function for setting DEX router address
@@ -106,7 +142,14 @@ contract sBombToken is ERC20, Ownable, ReentrancyGuard {
      */
     function setDexRouter(IUniswapV2Router _dex) external onlyOwner {
         require(address(_dex) != address(0));
+        isExcludedFromFee[address(_dex)] = true;
         dexRouter = _dex;
+    }
+
+    /** @dev Change isExcludedFromFee status
+     */
+    function changeExcludedFromFee(address _account) external onlyOwner {
+        isExcludedFromFee[_account] = !isExcludedFromFee[_account];
     }
 
     /** @dev Public payable function for adding liquidity in SBOMB-ETH pair without 20% fee
@@ -282,6 +325,43 @@ contract sBombToken is ERC20, Ownable, ReentrancyGuard {
         );
     }
 
+    /**
+     * @dev send rewards to the address.
+     * @param account for withdraw
+     */
+    function withdraw(address account) public {
+        uint256 amount = getReward(account);
+        require(
+            super.balanceOf(account) > 0 && !isExcludedFromFee[account] && amount > 0,
+            "sBomb: not holder"
+        );
+        //uint256 amount = getReward(account);
+        holdersReward[account] =
+            (globalCoefficient * (super.balanceOf(account) + amount)) /
+            MULTIPLIER;
+        totalDistributed = totalDistributed + amount;
+        super._transfer(address(this), account, amount);
+    }
+
+    /**
+     * @dev get amount reward for user.
+     * @param account is address for user
+     */
+    function getReward(address account) public view returns (uint256 amount) {
+        amount = ((globalCoefficient * super.balanceOf(account)) /
+            MULTIPLIER -
+            holdersReward[account]);
+    }
+
+    /**
+     * @dev overrided balanceOf; if account is excluded from fee, shows balance from _balances[account], else shows balance from _balances[account] plus rewards from SELL (2% * your shares).
+     */
+    function balanceOf(address account) public view virtual override returns (uint256) {
+        uint256 internalBalance = super.balanceOf(account);
+        if(isExcludedFromFee[account]) return internalBalance;
+        else return internalBalance + getReward(account);
+    }
+
     function _swapTokensForEth(
         uint256 tokenAmount,
         address to,
@@ -318,8 +398,43 @@ contract sBombToken is ERC20, Ownable, ReentrancyGuard {
         uint256 totalFee;
         IUniswapV2Factory factory = IUniswapV2Factory(dexRouter.factory());
 
+        bool pairSender = _pairCheck(sender);
+        bool pairRecipient = _pairCheck(recipient);
+
+        if(!isExcludedFromFee[sender]){
+            if(pairSender) {
+                isExcludedFromFee[sender] = true;
+            }
+            else {
+                if(getReward(sender) > 0)
+                    withdraw(sender);
+
+                holdersReward[sender] =
+                    (globalCoefficient * (super.balanceOf(sender) - amount)) /
+                    MULTIPLIER;
+            }
+        }
+        if(!isExcludedFromFee[recipient]){
+            if(pairRecipient) 
+                isExcludedFromFee[recipient] = true;
+            else {
+                if(getReward(recipient) > 0)
+                    withdraw(recipient);
+
+                holdersReward[recipient] =
+                    (globalCoefficient * (super.balanceOf(recipient) + amount)) /
+                    MULTIPLIER;
+            }
+        }
+
+        if (isExcludedFromFee[sender]) {
+            if (!isExcludedFromFee[recipient]) totalDistributed += amount;
+        } else {
+            if (isExcludedFromFee[recipient]) totalDistributed -= amount;
+        }
+
         if (!inSwap) {
-            if (_pairCheck(sender)) {
+            if (pairSender) {
                 BuyFees memory fee;
                 fee.timeBombFee = (TIMEBOMB_BUY_TAX * amount) / 100;
                 fee.timeBombFeeEth = fee.timeBombFee / 2;
@@ -345,14 +460,24 @@ contract sBombToken is ERC20, Ownable, ReentrancyGuard {
                             address(this),
                             path
                         );
+                        if(charityWallet != address(0)){
+                            fee.charity = fee.timeBombFeeSbomb * CHARITY_TAX / 100;
+                            super._transfer(
+                                address(this),
+                                charityWallet,
+                                fee.charity
+                            );
+                        }
                         super._transfer(
                             address(this),
                             timeBombContract,
-                            fee.timeBombFeeSbomb
+                            fee.timeBombFeeSbomb - fee.charity
                         );
                         ITimeBomb(timeBombContract).register{
                             value: address(this).balance
                         }(recipient, fee.timeBombFeeSbomb);
+                    } else {
+                        totalFee -= fee.timeBombFee;
                     }
                 } else {
                     address[] memory path = new address[](2);
@@ -364,14 +489,24 @@ contract sBombToken is ERC20, Ownable, ReentrancyGuard {
                             address(this),
                             path
                         );
+                        if(charityWallet != address(0)){
+                            fee.charity = fee.timeBombFeeSbomb * CHARITY_TAX / 100;
+                            super._transfer(
+                                address(this),
+                                charityWallet,
+                                fee.charity
+                            );
+                        }
                         super._transfer(
                             address(this),
                             timeBombContract,
-                            fee.timeBombFeeSbomb
+                            fee.timeBombFeeSbomb - fee.charity
                         );
                         ITimeBomb(timeBombContract).register{
                             value: address(this).balance
                         }(recipient, fee.timeBombFeeSbomb);
+                    } else {
+                        totalFee -= fee.timeBombFee;
                     }
                 }
 
@@ -385,27 +520,44 @@ contract sBombToken is ERC20, Ownable, ReentrancyGuard {
                     path[2] = SHIBAKEN;
                     if (_pairExisting(path))
                         _swapTokensForTokens(fee.burnFee, DEAD_ADDRESS, path);
+                    else {
+                        totalFee -= fee.burnFee;
+                    }
                 } else {
                     address[] memory path = new address[](2);
                     path[0] = address(this);
                     path[1] = SHIBAKEN;
                     if (_pairExisting(path))
                         _swapTokensForTokens(fee.burnFee, DEAD_ADDRESS, path);
+                    else {
+                        totalFee -= fee.burnFee;
+                    }
+                }
+
+                if(!isExcludedFromFee[recipient]){
+                    holdersReward[recipient] =
+                        (globalCoefficient * (super.balanceOf(recipient) + amount - totalFee)) /
+                        MULTIPLIER;
+
+                    totalDistributed -= totalFee;
                 }
 
                 emit BuyTaxTaken(fee.timeBombFee, fee.burnFee, totalFee);
             } else if (
-                _pairCheck(recipient) && address(dexRouter) == _msgSender()
+                pairRecipient && address(dexRouter) == _msgSender()
             ) {
-                /* uint256 burnFee = (SHIBAK_SELL_TAX * amount) / 100;
-                uint256 toTeam = (TEAM_SELL_TAX * amount) / 100;
-                uint256 toLiquidity = (LIQ_SELL_TAX * amount) / 100;
-                totalFee = burnFee + toTeam + toLiquidity; */
                 SellFees memory fee;
                 fee.burnFee = (SHIBAK_SELL_TAX * amount) / 100;
                 fee.teamFee = (TEAM_SELL_TAX * amount) / 100;
                 fee.liquidityFee = (LIQ_SELL_TAX * amount) / 100;
-                totalFee = fee.burnFee + fee.teamFee + fee.liquidityFee;
+                fee.holdersFee = (HOLDERS_SELL_TAX * amount) / 100;
+                totalFee =
+                    fee.burnFee +
+                    fee.teamFee +
+                    fee.liquidityFee +
+                    fee.holdersFee;
+
+                //super._transfer(sender, address(this), totalFee - fee.teamFee);
 
                 //BURN FEE
                 address[] memory path = new address[](2);
@@ -415,22 +567,20 @@ contract sBombToken is ERC20, Ownable, ReentrancyGuard {
                     super._transfer(sender, address(this), fee.burnFee);
                     _approve(address(this), address(dexRouter), fee.burnFee);
                     _swapTokensForTokens(fee.burnFee, DEAD_ADDRESS, path);
-                }
+                } else totalFee -= fee.burnFee;
 
-                //TEAM & LIQUIDITY FEE
+                //TEAM FEE
+                super._transfer(sender, teamWallet, fee.teamFee);
+
+                //LIQUIDITY FEE
                 path[1] = dexRouter.WETH();
                 if (_pairExisting(path)) {
-                    super._transfer(
-                        sender,
-                        address(this),
-                        fee.teamFee + fee.liquidityFee
-                    );
+                    super._transfer(sender, address(this), fee.liquidityFee);
                     _approve(
                         address(this),
                         address(dexRouter),
-                        fee.teamFee + fee.liquidityFee
+                        fee.liquidityFee
                     );
-                    _swapTokensForEth(fee.teamFee, teamWallet, path);
 
                     IUniswapV2Pair pair = IUniswapV2Pair(
                         factory.getPair(path[0], path[1])
@@ -462,12 +612,21 @@ contract sBombToken is ERC20, Ownable, ReentrancyGuard {
                             anotherHalf - tokenAmount
                         );
                     inSwap = false;
-                }
+                } else totalFee -= fee.liquidityFee;
+
+                //HOLDERS FEE
+                if(totalDistributed > 0){
+                    super._transfer(sender, address(this), fee.holdersFee);
+                    globalCoefficient +=
+                        (fee.holdersFee * MULTIPLIER) /
+                        totalDistributed;
+                } else totalFee -= fee.holdersFee;
 
                 emit SellTaxTaken(
                     fee.burnFee,
                     fee.teamFee,
                     fee.liquidityFee,
+                    fee.holdersFee,
                     totalFee
                 );
             }

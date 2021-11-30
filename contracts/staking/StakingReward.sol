@@ -24,8 +24,8 @@ contract StakingReward is Context, Ownable, Initializable {
     uint256 private constant PERCENT_BASE = 100;
 
     uint256 private constant MULTIPLIER = 10**20;
-    uint256 private constant LOCK_UP_PERIOD = 60 * 60 * 24 * 30;
-    uint256 private constant YEAR = 60 * 60 * 24 * 30 * 12;
+    uint256 private constant LOCK_UP_PERIOD = 15 * 60;//60 * 60 * 24 * 30;
+    //uint256 private constant YEAR = 60 * 60 * 24 * 30 * 12;
     address private constant DEAD_WALLET =
         0x000000000000000000000000000000000000dEaD;
 

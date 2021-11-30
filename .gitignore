@@ -4,3 +4,5 @@ build/
 package-lock.json
 coverage/
 coverage.json
+migrations/7_dedploy_staking.js
+contracts/flattened.sol

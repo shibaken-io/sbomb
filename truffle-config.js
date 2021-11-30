@@ -44,6 +44,13 @@ module.exports = {
             gas: DEFAULT_OPERATIONS_GASLIMIT,
             skipDryRun: true
         },
+        ropsten: {
+            provider: () => new HDWalletProvider(MNEMONIC, "https://ropsten.infura.io/v3/" + INFURA_ID_PROJECT),
+            network_id: 3,
+            confirmations: 2,
+            gas: DEFAULT_OPERATIONS_GASLIMIT,
+            skipDryRun: true
+        },
         rinkeby: {
             provider: () => new HDWalletProvider(MNEMONIC, "https://rinkeby.infura.io/v3/" + INFURA_ID_PROJECT),
             network_id: 4,

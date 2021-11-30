@@ -60,7 +60,8 @@ contract(
             team, 
             user1, 
             user2, 
-            user3
+            user3,
+            charity
         ]
     ) => {
 
@@ -88,7 +89,7 @@ contract(
                 { from: deployer }
             );
 
-            sBombToken = await SBombToken.new(shibakenToken.address, pancakeRouterInstant.address);
+            sBombToken = await SBombToken.new(shibakenToken.address, pancakeRouterInstant.address, deployer);
             console.log("SBOMB: ", sBombToken.address);
             
             timeBombContract = await TimeBomb.new(deployer, testToken.address, "0x7269746100000000000000000000000000000000000000000000000000000000", ONE, ONE, sBombToken.address);
@@ -160,6 +161,9 @@ contract(
             shibakenEthLp = await PancakePair.at(shibakenEthLp);
             sBombTestLp = await pancakeFactoryInstant.getPair(sBombToken.address, testToken.address);
             sBombTestLp = await PancakePair.at(sBombTestLp);
+
+            //console.log("TOTAL DISTRIBUTED: ",(await sBombToken.totalDistributed.call()).toString());
+            expect(await sBombToken.totalDistributed.call()).bignumber.equal(ZERO);
         })
 
         it("#1 - transfer between usual addresses", async()=>{
@@ -169,7 +173,8 @@ contract(
             const deadSbombEthLpBalanceBefore = await sBombEthLP.balanceOf(DEAD_ADDRESS);
             const lotteryEthBalanceBefore = await web3.eth.getBalance(timeBombContract.address);
             const teamEthBalanceBefore = await web3.eth.getBalance(team);
-            sBombToken.transfer(user1, ONE_HUNDRED_TOKENS, {from: deployer});
+            await sBombToken.transfer(user1, ONE_HUNDRED_TOKENS, {from: deployer});
+            expect(await sBombToken.totalDistributed.call()).bignumber.equal(ONE_HUNDRED_TOKENS);
             const lotteryEthBalanceAfter = await web3.eth.getBalance(timeBombContract.address);
             const teamEthBalanceAfter = await web3.eth.getBalance(team);
             const deadShibaBalanceAfter = await shibakenToken.balanceOf(DEAD_ADDRESS);
@@ -180,7 +185,7 @@ contract(
             assert.equal(deadSbombEthLpBalanceAfter - deadSbombEthLpBalanceBefore, 0);
         })
     
-        it("#2 - trying to BUY sBomb token on DEX", async()=>{
+        it("#2 - trying to BUY sBomb token on DEX", async()=>{ 
             assert.equal(await web3.eth.getBalance(sBombToken.address), 0);
             let amountEthToSBomb = await pancakeRouterInstant.getAmountsOut(ONE_HALF_TOKEN, [wethInst.address, sBombToken.address]);
             let amountSBombToSibaken = await pancakeRouterInstant.getAmountsOut(amountEthToSBomb[1].div(ONE_HUNDRED), [sBombToken.address, shibakenToken.address]);
@@ -201,6 +206,9 @@ contract(
                     from: user2
                 }
             );
+            const user2sbombBalance = await sBombToken.balanceOf(user2);
+            expect(user2sbombBalance).bignumber.equal(amountEthToSBomb[1].mul(new BN(94)).div(ONE_HUNDRED).add(ONE));
+            expect(await sBombToken.totalDistributed.call()).bignumber.equal(user2sbombBalance.add(ONE_HUNDRED_TOKENS));
             const lotteryEthBalanceAfter = await web3.eth.getBalance(timeBombContract.address);
             const shibakenTokenBalanceAfter = await shibakenToken.balanceOf(DEAD_ADDRESS);
             const lotterySbombBalanceAfter = await sBombToken.balanceOf(timeBombContract.address);
@@ -246,6 +254,7 @@ contract(
                 {from: user1}
             );
             const sBombBalanceAfter = await sBombToken.balanceOf(user1);
+            expect(await sBombToken.totalDistributed.call()).bignumber.equal((await sBombToken.balanceOf(user2)).add(sBombBalanceAfter));
             let difference = await web3.utils.fromWei(sBombBalanceAfter.sub(sBombBalanceBefore), 'ether');
             difference = parseFloat(difference).toFixed(17);
             let finalAmount = await web3.utils.fromWei(amounts[1].mul(new BN(94)).div(ONE_HUNDRED), 'ether');
@@ -275,10 +284,15 @@ contract(
 
         it("#4 - trying to SELL sBomb token on DEX to ETH", async()=>{
             assert.equal(await web3.eth.getBalance(sBombToken.address), 0);
+            expect((await sBombToken.getReward(user1))).bignumber.equal(ZERO);
+            expect((await sBombToken.getReward(user2))).bignumber.equal(ZERO);
             let now = await time.latest();
             const ethBalanceBefore = await web3.eth.getBalance(user2);
-            let amountsOut = await pancakeRouterInstant.getAmountsOut(ONE_TOKEN.mul(EIGHT).div(TEN), [sBombToken.address, wethInst.address]);
-            
+            const teamBalanceBefore = await sBombToken.balanceOf(team);
+            const deadBalanceBefore = await shibakenToken.balanceOf(DEAD_ADDRESS);
+            let amountsOut = await pancakeRouterInstant.getAmountsOut(ONE_TOKEN, [sBombToken.address, wethInst.address]);
+            let deadAmount = await pancakeRouterInstant.getAmountsOut(ONE_TOKEN.mul(EIGHT).div(ONE_HUNDRED), [sBombToken.address, shibakenToken.address]);
+
             await sBombToken.approve(pancakeRouterInstant.address, ONE_TOKEN);
             await pancakeRouterInstant.swapExactTokensForETHSupportingFeeOnTransferTokens(
                 ONE_TOKEN,
@@ -291,34 +305,58 @@ contract(
             const ethBalanceAfter = await web3.eth.getBalance(user2);
             let difference = await web3.utils.fromWei((ethBalanceAfter - ethBalanceBefore).toString(), 'ether');
             difference = parseFloat(difference).toFixed(2);
-            let finalAmount = await web3.utils.fromWei(amountsOut[1], 'ether');
+            let finalAmount = await web3.utils.fromWei(amountsOut[1].mul(EIGHT).div(TEN), 'ether');
             finalAmount = parseFloat(finalAmount).toFixed(2);
             assert.equal(finalAmount, difference);
+
+            const holdersPerc = ONE_TOKEN.mul(TWO).div(ONE_HUNDRED);
+
+            //expect((await sBombToken.getReward(user1))).bignumber.equal(ZERO);
+            expect((await sBombToken.getReward(user1))).bignumber.equal(holdersPerc.mul((await sBombToken.balanceOf(user1)).sub(await sBombToken.getReward(user1))).div(await sBombToken.totalDistributed.call()));
+            expect((await sBombToken.getReward(user2))).bignumber.equal(holdersPerc.mul((await sBombToken.balanceOf(user2)).sub(await sBombToken.getReward(user2))).div(await sBombToken.totalDistributed.call()));
+
+            const teamBalanceAfter = await sBombToken.balanceOf(team);
+            expect(teamBalanceAfter.sub(teamBalanceBefore)).bignumber.equal(ONE_TOKEN.mul(FIVE).div(ONE_HUNDRED));
+
+            const deadBalanceAfter = await shibakenToken.balanceOf(DEAD_ADDRESS);
+            expect(deadBalanceAfter.sub(deadBalanceBefore)).bignumber.equal(deadAmount[1].sub(deadAmount[1].mul(TWO).div(ONE_HUNDRED)).add(ONE));
+
+            await sBombToken.transfer(user3, ONE_TOKEN, {from: user1});
+            expect((await sBombToken.getReward(user1))).bignumber.equal(ZERO);
+            expect((await sBombToken.getReward(user3))).bignumber.equal(ZERO);
         })
 
         it("#5 - trying to SELL sBomb token on DEX to TOKENS", async()=>{
             assert.equal(await web3.eth.getBalance(sBombToken.address), 0);
             let now = await time.latest();
             const testTokenBalanceBefore = await testToken.balanceOf(user2);
-            sBombToken.transfer(user2, FIVE.mul(TEN).mul(ONE_TOKEN));
+            await sBombToken.transfer(user2, FIVE.mul(TEN).mul(ONE_TOKEN));
             let amountsOut = await pancakeRouterInstant.getAmountsOut(FIVE.mul(TEN).mul(ONE_TOKEN).mul(EIGHT).div(TEN), [sBombToken.address, testToken.address]);
 
-            let shibakenToBurn = await pancakeRouterInstant.getAmountsOut(FIVE.mul(ONE_TOKEN), [sBombToken.address, shibakenToken.address]);
+            let shibakenToBurn = await pancakeRouterInstant.getAmountsOut(FIVE.mul(ONE_TOKEN).mul(EIGHT).div(TEN), [sBombToken.address, shibakenToken.address]);
             let ethToTeam = await pancakeRouterInstant.getAmountsOut(FIVE.mul(TEN).mul(ONE_TOKEN).mul(FIVE).div(ONE_HUNDRED), [sBombToken.address, wethInst.address]);
             let sBombEthReserves = await sBombEthLP.getReserves();
-            let ethToLiquidity = ethToTeam[1].div(TWO);
-            let sBombToLiquidity = (FIVE.mul(TEN).mul(ONE_TOKEN).mul(FIVE).div(ONE_HUNDRED)).sub(FIVE.mul(TEN).mul(ONE_TOKEN).mul(FIVE).div(ONE_HUNDRED).div(TWO));
             let sbombReserve = sBombToken.address == sBombEthLP.token0() ? sBombEthReserves[0] : sBombEthReserves[1];
             let ethReserve = sBombToken.address == sBombEthLP.token0() ? sBombEthReserves[1] : sBombEthReserves[0];
+            let ethToLiquidity = ethToTeam[1].div(TWO);
+            let sBombToLiquidity = (ethToTeam[0]).sub(ethToTeam[0].div(TWO));
             let amountEthOptimal  = sBombToLiquidity.mul(ethReserve).div(sbombReserve);
             let amountSBombOptimal = ethToLiquidity.mul(sbombReserve).div(ethReserve);
             ethToLiquidity = ethToLiquidity < amountEthOptimal ? amountEthOptimal : ethToLiquidity;
             sBombToLiquidity = sBombToLiquidity < amountSBombOptimal ? amountSBombOptimal : sBombToLiquidity;
-            let lpTokenAmountToMint = BN.min(ethToLiquidity.mul(await sBombEthLP.totalSupply()).div(ethReserve), sBombToLiquidity.mul(await sBombEthLP.totalSupply()).div(sbombReserve));
+            let lpTotalSupply = await sBombEthLP.totalSupply();
+            let lpTokenAmountToMint = BN.min(new BN(ethToLiquidity).mul(lpTotalSupply).div(ethReserve), sBombToLiquidity.mul(lpTotalSupply).div(sbombReserve));
 
             const shibakenBalanceBefore = await shibakenToken.balanceOf(DEAD_ADDRESS);
-            const teamBalanceBefore = await web3.eth.getBalance(team);
+            const teamBalanceBefore = await sBombToken.balanceOf(team);
             const lpBalanceBefore = await sBombEthLP.balanceOf(DEAD_ADDRESS);
+
+            let user1BeforeReward = await sBombToken.getReward(user1);
+            let user2BeforeReward = await sBombToken.getReward(user2);
+            let user3BeforeReward = await sBombToken.getReward(user3);
+            expect(user1BeforeReward).bignumber.equal(ZERO);
+            expect(user2BeforeReward).bignumber.equal(ZERO);
+            expect(user3BeforeReward).bignumber.equal(ZERO);
 
             await sBombToken.approve(pancakeRouterInstant.address, FIVE.mul(TEN).mul(ONE_TOKEN), {from: user2});
             await pancakeRouterInstant.swapExactTokensForTokensSupportingFeeOnTransferTokens(
@@ -333,22 +371,26 @@ contract(
             expect(testTokenBalanceAfter.sub(testTokenBalanceBefore)).bignumber.equal(amountsOut[1]);
 
             const shibakenBalanceAfter = await shibakenToken.balanceOf(DEAD_ADDRESS);
-            const teamBalanceAfter = await web3.eth.getBalance(team);
+            const teamBalanceAfter = await sBombToken.balanceOf(team);
             const lpBalanceAfter = await sBombEthLP.balanceOf(DEAD_ADDRESS);
 
-            expect(shibakenBalanceAfter.sub(shibakenBalanceBefore)).bignumber.equal(shibakenToBurn[1].sub(shibakenToBurn[1].mul(TWO).div(ONE_HUNDRED)));
+            expect(shibakenBalanceAfter.sub(shibakenBalanceBefore)).bignumber.equal(shibakenToBurn[1].sub(shibakenToBurn[1].mul(TWO).div(ONE_HUNDRED)).add(ONE));
 
-            let difference = await web3.utils.fromWei((teamBalanceAfter - teamBalanceBefore).toString(), 'ether');
-            difference = parseFloat(difference).toFixed(11);
-            let finalAmount = await web3.utils.fromWei(ethToTeam[1], 'ether');
-            finalAmount = parseFloat(finalAmount).toFixed(11);
-            assert.equal(finalAmount.toString(), difference.toString());
+            expect(teamBalanceAfter.sub(teamBalanceBefore)).bignumber.equal(FIVE.mul(TEN).mul(ONE_TOKEN).mul(FIVE).div(ONE_HUNDRED));
 
-            difference = await web3.utils.fromWei(lpBalanceAfter.sub(lpBalanceBefore), 'ether');
+            let difference = await web3.utils.fromWei(lpBalanceAfter.sub(lpBalanceBefore), 'ether');
             difference = parseFloat(difference).toFixed(1);
-            finalAmount = await web3.utils.fromWei(new BN(lpTokenAmountToMint), 'ether');
+            let finalAmount = await web3.utils.fromWei(new BN(lpTokenAmountToMint), 'ether');
             finalAmount = parseFloat(finalAmount).toFixed(1);
             assert.equal(finalAmount, difference);
+
+            let user1AfterReward = await sBombToken.getReward(user1);
+            let user2AfterReward = await sBombToken.getReward(user2);
+            let user3AfterReward = await sBombToken.getReward(user3);
+            const holdersPerc = FIVE.mul(TEN).mul(ONE_TOKEN).mul(TWO).div(ONE_HUNDRED);
+            expect(user1AfterReward).bignumber.equal(holdersPerc.mul((await sBombToken.balanceOf(user1)).sub(await sBombToken.getReward(user1))).div(await sBombToken.totalDistributed.call()));
+            expect(user2AfterReward).bignumber.equal(holdersPerc.mul((await sBombToken.balanceOf(user2)).sub(await sBombToken.getReward(user2))).div(await sBombToken.totalDistributed.call()).add(ONE));
+            expect(user3AfterReward).bignumber.equal(holdersPerc.mul((await sBombToken.balanceOf(user3)).sub(await sBombToken.getReward(user3))).div(await sBombToken.totalDistributed.call()).add(ONE));
         })
 
         it("#6 - trying add liquidity ETH without fee", async()=>{
@@ -488,6 +530,28 @@ contract(
 
             expect(sBombBalanceAfter.sub(sBombBalanceBefore)).bignumber.equal(reserves[1].mul(lpBalance).div(totalSupply));
             expect(testBalanceAfter.sub(testBalanceBefore)).bignumber.equal(reserves[0].mul(lpBalance).div(totalSupply));
+        })
+
+        it('#10 - include charity', async()=>{
+            let now = await time.latest();
+            await sBombToken.changeCharityWallet(charity);
+            expect(await sBombToken.balanceOf(charity)).bignumber.equal(ZERO);
+            let sBombAmount = await pancakeRouterInstant.getAmountsOut(ONE_HALF_TOKEN, [testToken.address, sBombToken.address]);
+            let timeBombBefore = await sBombToken.balanceOf(timeBombContract.address);
+            
+            await testToken.approve(pancakeRouterInstant.address, ONE_HALF_TOKEN, {from: user1});
+            await pancakeRouterInstant.swapExactTokensForTokens(
+                ONE_HALF_TOKEN,
+                ZERO,
+                [testToken.address, sBombToken.address],
+                user1,
+                now.add(time.duration.minutes(15)),
+                {from: user1}
+            );
+
+            expect(await sBombToken.balanceOf(charity)).bignumber.equal(sBombAmount[1].mul(FIVE).div(ONE_HUNDRED).div(TWO).div(TEN));
+            let timeBombAfter = await sBombToken.balanceOf(timeBombContract.address);
+            expect(timeBombAfter.sub(timeBombBefore)).bignumber.equal(sBombAmount[1].mul(FIVE).div(ONE_HUNDRED).div(TWO).sub(sBombAmount[1].mul(FIVE).div(ONE_HUNDRED).div(TWO).div(TEN)).add(ONE));
         })
     }
 )

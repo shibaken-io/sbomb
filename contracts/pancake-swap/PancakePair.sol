@@ -11,8 +11,6 @@ import "./libraries/UQ112x112.sol";
 import "./interfaces/IPancakeFactory.sol";
 import "./interfaces/IPancakeCallee.sol";
 
-import "hardhat/console.sol";
-
 contract PancakePair is IPancakePair, PancakeERC20 {
     using UQ112x112 for uint224;
 

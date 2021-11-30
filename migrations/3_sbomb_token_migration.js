@@ -6,7 +6,9 @@ const {
     SHIBAKEN, 
     DEX_ROUTER, 
     TIME_BOMB_CONTRACT, 
-    TEAM_WALLET
+    TEAM_WALLET,
+    OWNER,
+    CHARITY_WALLET
 } = process.env;
 
 
@@ -26,10 +28,11 @@ module.exports = async function(deployer, network, accounts) {
         dexRouter = DEX_ROUTER;
     }
 
-    await deployer.deploy(sBombToken, shibakenToken, dexRouter);
+    await deployer.deploy(sBombToken, shibakenToken, dexRouter, OWNER, {gas: 5000000});
     let sBombTokenInst = await sBombToken.deployed();
     console.log("sBomb Token address: ", sBombTokenInst.address);
 
-    await sBombTokenInst.setTimeBombContarct(timeBombContarct);
+    //await sBombTokenInst.setTimeBombContarct(timeBombContarct);
     await sBombTokenInst.changeTeamWallet(teamWallet);
+    await sBombTokenInst.changeCharityWallet(CHARITY_WALLET);
 };
