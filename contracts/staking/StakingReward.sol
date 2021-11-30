@@ -161,6 +161,7 @@ contract StakingReward is Context, Ownable, Initializable {
         );
 
         if (users[investor].amount == 0) {
+            users[investor].start = 0;
             if (getReward(investor) > 0) claim();
             if (block.timestamp - startProcess <= campaignDuration)
                 holdersAmount -= 1;
