@@ -23,7 +23,7 @@ const THREE = new BN(3);
 const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
 
 module.exports = async function (deployer, network) {
-    if (network == "test" || network == "development")
+    if (network == "test" || network == "development" || network == "develop")
         return;
 
     await deployer.deploy(

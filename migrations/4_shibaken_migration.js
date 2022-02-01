@@ -15,10 +15,10 @@ module.exports = async (deployer, network, accounts) => {
     let recipient;
 
     if(network == "test" || network == "develop"){
-        recipient = RECIPIENT;
+        recipient = accounts[0];
     }
     else {
-        recipient = accounts[0];
+        recipient = RECIPIENT;
     }
     
     await shibakenInstance.initialize(recipient);
